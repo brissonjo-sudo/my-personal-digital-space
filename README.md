@@ -1,16 +1,23 @@
-# 📄 ➜ 📝 Convertisseur Markdown
+# My Personal Digital Space
 
-[![Tests](https://github.com/brissonjo-sudo/convert-to-markdown/actions/workflows/tests.yml/badge.svg)](https://github.com/brissonjo-sudo/convert-to-markdown/actions/workflows/tests.yml)
+[![Tests](https://github.com/brissonjo-sudo/my-personal-digital-space/actions/workflows/tests.yml/badge.svg)](https://github.com/brissonjo-sudo/my-personal-digital-space/actions/workflows/tests.yml)
 
-Un convertisseur de fichiers bureautiques en Markdown (.md) — **100 % local, sans installation, sans serveur.**
+Une boîte à outils numérique personnelle — **100 % locale, sans installation, sans serveur.** Vos fichiers ne quittent jamais votre appareil.
 
-🔗 **[Utiliser l'application →](https://brissonjo-sudo.github.io/convert-to-markdown/)**
+> 🚧 **En développement** (nom provisoire). Issu de [convert-to-markdown](https://github.com/brissonjo-sudo/convert-to-markdown), qui reste disponible tel quel.
+
+| Module | État |
+| --- | --- |
+| 📝 **Convertir** : documents bureautiques → Markdown | ✅ disponible |
+| 📑 **PDF** : annoter, signer, tamponner, gérer les pages, remplir les formulaires | 🔨 en cours |
 
 ---
 
-## ✨ Comment l'utiliser
+## 📝 Module Convertir
 
-1. **Ouvrez** [le lien ci-dessus](https://brissonjo-sudo.github.io/convert-to-markdown/) dans votre navigateur
+### ✨ Comment l'utiliser
+
+1. **Ouvrez** l'application et choisissez **Convertir** dans la barre latérale
 2. **Ajoutez** vos documents : glissez-les dans la zone de dépôt, cliquez pour les choisir, ou **collez** (Ctrl+V) un texte copié depuis Word, un mail ou une page web
 3. *(Facultatif)* **Cochez** « En-tête Obsidian » si vous rangez vos notes dans Obsidian
 4. **Récupérez** vos `.md` — un par un, ou tous en `.zip`
@@ -92,26 +99,29 @@ Si vous préférez héberger l'outil sur votre propre serveur ou en local :
 
 ```bash
 # Cloner le repo
-git clone https://github.com/brissonjo-sudo/convert-to-markdown.git
-cd convert-to-markdown
+git clone https://github.com/brissonjo-sudo/my-personal-digital-space.git
+cd my-personal-digital-space
 
 # Aucune dépendance à installer : servir le dossier suffit
 python -m http.server 8000   # puis ouvrir http://localhost:8000
 ```
 
-Ouvert directement (double-clic sur `index.html`, sans serveur), l'outil fonctionne aussi, mais **sans mode hors ligne garanti** : celui-ci repose sur un service worker, que les navigateurs n'activent qu'à travers un serveur (le lien en ligne, ou un serveur local comme ci-dessus).
+Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans serveur), l'outil fonctionne aussi, mais **sans mode hors ligne garanti** : celui-ci repose sur un service worker, que les navigateurs n'activent qu'à travers un serveur (le lien en ligne, ou un serveur local comme ci-dessus).
 
 ---
 
 ## 🏗️ Architecture technique
 
-- **Quatre fichiers, zéro build** :
-  - `index.html` — toute l'application (HTML + CSS + JS). **Ouvert seul, il reste pleinement fonctionnel** (y compris en `file://`), sans le mode hors ligne.
+- **Un dossier, zéro build** :
+  - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
+  - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, styles communs
+  - `modules/<nom>/` — un dossier par module (scripts et styles)
+  - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
   - `icone.svg` — icône de l'application
 - **Zéro framework** : JavaScript vanilla, pas de webpack, pas de build
-- **Conversions lourdes déléguées** : les tableurs / CSV / PowerPoint / OpenDocument sont parsés dans un **Web Worker** (construit à partir du bloc `#code-partage` d'`index.html`, sans duplication de code), avec repli automatique sur le fil principal si le worker ne peut pas démarrer
+- **Conversions lourdes déléguées** : les tableurs / CSV / PowerPoint / OpenDocument sont parsés dans un **Web Worker** (construit à partir de la fonction `codePartage()` de `modules/convertir/partage.js`, sans duplication de code), avec repli automatique sur le fil principal si le worker ne peut pas démarrer
 - **Hors ligne (PWA)** : le service worker met en cache les bibliothèques à la première visite, et les fichiers de l'OCR à son premier usage
 - **Bibliothèques tierces** : chargées depuis [cdnjs.cloudflare.com](https://cdnjs.com), [cdn.sheetjs.com](https://cdn.sheetjs.com) pour SheetJS (plus publié sur cdnjs depuis la 0.18.5, vulnérable) et [jsDelivr](https://www.jsdelivr.com) pour l'OCR, versions épinglées, empreintes SRI vérifiées
 - **Accessibilité** : navigation clavier complète, focus piégé dans la fenêtre d'aperçu, attributs ARIA, journal annoncé aux lecteurs d'écran (`aria-live`)
@@ -147,13 +157,13 @@ npm test
 
 Pour modifier l'outil :
 
-1. **Modification rapide via GitHub** : cliquez sur le crayon ✏️ sur `index.html`, éditez, commit. L'URL se met à jour en 1-2 min.
-2. **Modification locale** : `git clone`, modifier `index.html`, `git push`. Idem.
+1. **Modification rapide via GitHub** : cliquez sur le crayon ✏️ sur le fichier concerné, éditez, commit. L'URL se met à jour en 1-2 min.
+2. **Modification locale** : `git clone`, modifier, `git push`. Idem.
 
 L'application ne demande ni compilation ni dépendance : `package.json` ne sert qu'aux tests (voir ci-dessus), qui vérifient automatiquement chaque pull request.
 
-> **Note (bibliothèques et service worker)** : modifier `index.html` seul ne demande rien de particulier — les pages sont servies « réseau d'abord », la nouvelle version s'affiche au rechargement suivant. En revanche, si vous **changez la version d'une bibliothèque CDN** :
-> 1. mettez à jour son URL **et son empreinte** dans `index.html` (attribut `integrity` de la balise, ou table `INTEGRITE`) ; `node tests/verifier-cdn.js` donne l'empreinte réelle ;
+> **Note (bibliothèques et service worker)** : modifier `index.html`, `commun/` ou `modules/` ne demande rien de particulier — ces fichiers sont servis « réseau d'abord », la nouvelle version s'affiche au rechargement suivant. En revanche, si vous **changez la version d'une bibliothèque CDN** :
+> 1. mettez à jour son URL **et son empreinte** dans `index.html` (attribut `integrity` de la balise) ou dans la table `INTEGRITE` (`modules/convertir/convertir.js`) ; `node tests/verifier-cdn.js` donne l'empreinte réelle ;
 > 2. mettez à jour l'URL dans `sw.js` (`PRECACHE`) et incrémentez sa constante `VERSION` pour purger l'ancien cache ;
 > 3. pour les tests, épinglez la même version dans `package.json` (SheetJS : archive `https://cdn.sheetjs.com/xlsx-<version>/xlsx-<version>.tgz`, l'éditeur ne publiant plus sur npm).
 
@@ -161,6 +171,11 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 
 ## 📅 Roadmap (idées, non engageant)
 
+- 🔨 Module PDF : annoter, signer, tamponner, pages, formulaires
+- 🔭 Images : compresser, redimensionner, convertir, retirer les métadonnées
+- 🔭 PDF : compresser, caviarder
+- 🔭 Markdown → Word / PDF
+- 🔭 Outils texte : comparer, nettoyer, anonymiser
 - 🔭 OCR dans d'autres langues que le français
 - 🔭 Courriels Outlook `.msg`
 - 🔭 Interface mobile optimisée (actuellement responsive mais perfectible)
