@@ -12,7 +12,8 @@
        - script-src : 'self' pour les fichiers de l'application (commun/, modules/),
          'wasm-unsafe-eval' pour le moteur OCR (WebAssembly), blob: pour les scripts
          vérifiés (SRI) exécutés dans les workers. 'unsafe-inline' est conservé tel
-         quel (politique inchangée) : plus aucun script en ligne, à retirer plus tard.
+         quel (politique inchangée) : il sert encore aux attributs onerror= des
+         balises CDN ci-dessous ; ne le retirer qu'après les avoir remplacés.
        Chaque bibliothèque est en outre vérifiée par son empreinte (SRI, voir
        INTEGRITE) : un fichier modifié sur le CDN est refusé. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.sheetjs.com; worker-src 'self' blob:; connect-src 'self' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.sheetjs.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
