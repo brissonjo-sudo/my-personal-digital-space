@@ -28,11 +28,13 @@ const test = base.extend({
   },
 });
 
-// Ouvre l'application et attend que toutes les bibliothèques soient chargées.
+// Ouvre l'application et attend que toutes les bibliothèques soient chargées et
+// que le module Convertir soit monté.
 async function ouvrirApp(page) {
   await page.goto('index.html');
   await page.waitForFunction(() =>
-    window.mammoth && window.TurndownService && window.pdfjsLib && window.XLSX && window.Papa && window.JSZip);
+    window.mammoth && window.TurndownService && window.pdfjsLib && window.XLSX && window.Papa && window.JSZip
+    && document.getElementById('zone-depot'));
 }
 
 module.exports = { test, expect, ouvrirApp };

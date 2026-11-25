@@ -11,7 +11,12 @@ const path = require('path');
 const crypto = require('crypto');
 
 const RACINE = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(RACINE, 'index.html'), 'utf8');
+// Sources de l'application : index.html + scripts locaux (la table INTEGRITE est dans
+// modules/convertir/convertir.js)
+const fichiersApp = dossier => fs.readdirSync(path.join(RACINE, dossier), { withFileTypes: true })
+  .flatMap(e => e.isDirectory() ? fichiersApp(path.join(dossier, e.name)) : e.name.endsWith('.js') ? [path.join(dossier, e.name)] : []);
+const html = ['index.html', ...fichiersApp('commun'), ...fichiersApp('modules')]
+  .map(f => fs.readFileSync(path.join(RACINE, f), 'utf8')).join(String.fromCharCode(10));
 const sw   = fs.readFileSync(path.join(RACINE, 'sw.js'), 'utf8');
 const URL_CDN = /https:\/\/(?:cdnjs\.cloudflare\.com\/ajax\/libs|cdn\.jsdelivr\.net\/npm|cdn\.sheetjs\.com\/xlsx-[^/]+\/package)\/[^'"`\s]+/g;
 

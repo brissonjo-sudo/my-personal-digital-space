@@ -1,0 +1,154 @@
+/* Styles propres au module Convertir (jetons et base : commun/style.css). */
+.app { max-width: 760px; margin: 0 auto; }
+
+/* ---- En-tête ---- */
+header { text-align: center; margin-bottom: 1.5rem; }
+header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: .4rem; }
+.confidentialite {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: var(--ok-fond); color: var(--ok);
+  border: 1px solid var(--ok-bord); border-radius: 20px;
+  font-size: .82rem; padding: .3rem .9rem;
+}
+
+/* ---- Bandeau avertissement CDN ---- */
+.bandeau-cdn {
+  background: var(--note-fond); border: 1px solid var(--note-bord);
+  border-radius: var(--radius); padding: .75rem 1rem;
+  font-size: .85rem; color: var(--note-texte); margin-bottom: 1rem;
+}
+
+/* ---- Zone de dépôt ---- */
+.zone-depot {
+  border: 2.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 2.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.zone-depot:hover, .zone-depot.survol {
+  border-color: var(--accent);
+  background: var(--accent-fond);
+}
+.zone-depot input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.zone-depot-icone { font-size: 2.5rem; line-height: 1; margin-bottom: .5rem; }
+.zone-depot-titre { font-size: 1.1rem; font-weight: 600; margin-bottom: .25rem; }
+.zone-depot-sub   { font-size: .9rem; color: var(--muted); margin-bottom: .75rem; }
+.zone-depot-sub span { color: var(--lien); text-decoration: underline; }
+.option {
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  margin-top: .75rem; font-size: .85rem; color: var(--muted); cursor: pointer;
+}
+.formats-badge {
+  display: inline-block;
+  background: var(--fond-2); border-radius: 20px;
+  font-size: .75rem; color: var(--muted);
+  padding: .25rem .9rem; letter-spacing: .02em;
+}
+
+/* ---- Section journal ---- */
+.journal-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 1.25rem;
+  overflow: hidden;
+}
+.journal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.journal-header h2 { font-size: .95rem; font-weight: 600; }
+.journal-actions { display: flex; gap: .5rem; }
+.journal-liste { list-style: none; padding: 0; }
+.journal-item {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+  transition: background .15s;
+}
+.journal-item:last-child { border-bottom: none; }
+.journal-item:hover { background: var(--bg); }
+.journal-icone { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+.journal-corps { flex: 1; min-width: 0; }
+.journal-nom {
+  font-weight: 600; color: var(--lien);
+  cursor: pointer; text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block;
+}
+.journal-nom:hover { text-decoration: underline; }
+.journal-nom.non-cliquable { color: var(--text); cursor: default; pointer-events: none; }
+.journal-msg { color: var(--muted); margin-top: .1rem; }
+.journal-item.en-cours .journal-msg { color: var(--warn); }
+.journal-item.ok    .journal-icone { color: var(--ok);   }
+.journal-item.warn  .journal-icone { color: var(--warn); }
+.journal-item.err   .journal-icone { color: var(--err);  }
+.journal-actions-item { display: flex; gap: .4rem; align-items: center; margin-top: .35rem; flex-wrap: wrap; }
+
+/* ---- Boutons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: .3rem;
+  border: none; border-radius: 6px;
+  padding: .4rem .85rem; font-size: .82rem; font-weight: 500;
+  cursor: pointer; transition: background .15s, opacity .15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: default; }
+.btn-primaire  { background: var(--accent); color: #fff; }
+.btn-primaire:hover:not(:disabled) { background: var(--accent-h); }
+.btn-secondaire { background: var(--fond-2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondaire:hover:not(:disabled) { background: var(--border); }
+.btn-petit { font-size: .78rem; padding: .25rem .6rem; }
+
+/* ---- Aperçu overlay ---- */
+.apercu-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.apercu-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 100%; max-width: 760px;
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.apercu-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  gap: .5rem;
+}
+.apercu-titre { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apercu-header-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+.apercu-note {
+  background: var(--note-fond); color: var(--note-texte);
+  border-bottom: 1px solid var(--note-bord);
+  font-size: .8rem; padding: .5rem 1rem;
+}
+.apercu-contenu {
+  flex: 1; overflow: auto;
+  padding: 1rem; font-size: .82rem;
+  font-family: 'Consolas', 'Fira Mono', monospace;
+  line-height: 1.6; white-space: pre-wrap;
+  color: var(--text);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 480px) {
+  header h1 { font-size: 1.25rem; }
+  .zone-depot { padding: 1.75rem .75rem; }
+  .journal-header { flex-direction: column; align-items: flex-start; gap: .5rem; }
+}

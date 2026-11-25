@@ -1,7 +1,7 @@
 {
-  "name": "Convertisseur Markdown",
-  "short_name": "Vers MD",
-  "description": "Conversion locale de documents bureautiques (PDF, Word, Excel, CSV, PowerPoint, HTML) en Markdown — 100 % dans le navigateur.",
+  "name": "My Personal Digital Space",
+  "short_name": "MPDS",
+  "description": "Espace personnel d'outils 100 % locaux : conversion de documents en Markdown (PDF à venir), directement dans le navigateur.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "./",

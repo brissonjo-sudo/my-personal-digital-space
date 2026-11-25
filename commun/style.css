@@ -1,0 +1,82 @@
+/* MPDS : jetons de conception, base et coquille (rail + zone de contenu).
+   Les styles propres à un module vivent dans modules/<id>/<id>.css. */
+:root {
+  --accent:   #2563eb;
+  --accent-h: #1d4ed8;
+  --ok:       #16a34a;
+  --warn:     #d97706;
+  --err:      #dc2626;
+  --bg:       #f8fafc;
+  --surface:  #ffffff;
+  --border:   #e2e8f0;
+  --text:     #1e293b;
+  --muted:    #64748b;
+  --radius:   10px;
+  --lien:       #2563eb;
+  --fond-2:     #f1f5f9;
+  --accent-fond:#eff6ff;
+  --ok-fond:    #f0fdf4;
+  --ok-bord:    #bbf7d0;
+  --note-fond:  #fefce8;
+  --note-bord:  #fde047;
+  --note-texte: #854d0e;
+  color-scheme: light dark;   /* cases à cocher, barres de défilement */
+}
+/* Thème sombre : suit le réglage du système */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-h:   #3b82f6;
+    --lien:       #93c5fd;
+    --ok:         #4ade80;
+    --warn:       #fbbf24;
+    --err:        #f87171;
+    --bg:         #0f172a;
+    --surface:    #1e293b;
+    --border:     #334155;
+    --text:       #e2e8f0;
+    --muted:      #94a3b8;
+    --fond-2:     #273449;
+    --accent-fond:#172554;
+    --ok-fond:    #052e16;
+    --ok-bord:    #166534;
+    --note-fond:  #422006;
+    --note-bord:  #a16207;
+    --note-texte: #fde68a;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* L'attribut hidden doit TOUJOURS l'emporter sur les display: des classes
+   (.btn, .apercu-overlay, etc.) — sinon les éléments "cachés" restent visibles. */
+[hidden] { display: none !important; }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ---- Coquille : rail latéral + zone de contenu ---- */
+.mpds { display: flex; min-height: 100vh; }
+.rail {
+  flex: 0 0 auto; width: 5.5rem;
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 1rem .5rem;
+}
+.rail-liste { list-style: none; display: flex; flex-direction: column; gap: .25rem; }
+.rail-lien {
+  display: flex; flex-direction: column; align-items: center; gap: .2rem;
+  padding: .5rem .25rem; border-radius: var(--radius);
+  color: var(--muted); text-decoration: none; font-size: .75rem;
+}
+.rail-lien:hover { background: var(--fond-2); color: var(--text); }
+.rail-lien[aria-current="page"] { background: var(--accent-fond); color: var(--accent); font-weight: 600; }
+.rail-icone { font-size: 1.4rem; line-height: 1; }
+.mpds-contenu { flex: 1; min-width: 0; padding: 1.5rem 1rem; }
+
+@media (max-width: 600px) {
+  .mpds { flex-direction: column; }
+  .rail { width: auto; border-right: none; border-bottom: 1px solid var(--border); padding: .4rem .5rem; }
+  .rail-liste { flex-direction: row; }
+  .rail-lien { flex-direction: row; gap: .5rem; padding: .4rem .75rem; }
+}

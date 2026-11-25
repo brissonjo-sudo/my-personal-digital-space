@@ -1,6 +1,7 @@
 // Serveur statique de TEST (aucune dépendance).
 //
-//  /app/<fichier>      → fichier du dépôt ; dans index.html et sw.js, les URLs
+//  /app/<fichier>      → fichier du dépôt (sous-dossiers compris) ; dans les .html et .js
+//                        de l'application (index.html, sw.js, commun/, modules/), les URLs
 //                        cdnjs et jsDelivr sont réécrites vers /__libs__/ et
 //                        /__npm__/ (tests hors réseau, mêmes versions épinglées,
 //                        installées via npm).
@@ -38,6 +39,7 @@ const LIBS = {
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.webmanifest': 'application/manifest+json',
   '.json': 'application/json',
@@ -118,7 +120,7 @@ const serveur = http.createServer((req, res) => {
     }
     const ext = path.extname(fichier);
     let corps = fs.readFileSync(fichier);
-    if (relatif === 'index.html' || relatif === 'sw.js') {
+    if (ext === '.html' || ext === '.js') {
       corps = empreintesLocales(corps.toString('utf8'))
         .split(CDN).join(`http://localhost:${PORT}/__libs__`)
         .split(NPM).join(`http://localhost:${PORT}/__npm__`)

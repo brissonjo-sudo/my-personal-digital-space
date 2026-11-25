@@ -1,7 +1,7 @@
 /* Service worker — fonctionnement 100 % hors-ligne après la première visite.
  *
  * MISE À JOUR :
- *  - Modifier index.html seul : rien à faire. Les navigations sont servies en
+ *  - Modifier index.html, commun/ ou modules/ : rien à faire. Les navigations sont servies en
  *    « réseau d'abord » ; la nouvelle version s'affiche au rechargement suivant.
  *  - Changer la version d'une bibliothèque CDN : mettre à jour l'URL dans
  *    index.html ET dans PRECACHE ci-dessous, PUIS incrémenter VERSION. L'ancien
@@ -9,7 +9,8 @@
  */
 'use strict';
 
-const VERSION = 'conv-md-v2';                 // ← nom du cache ; bump si libs CDN changent
+const VERSION = 'mpds-v1';                    // ← nom du cache ; bump si libs CDN changent
+const PREFIXE = 'mpds-';                      // seuls les caches de ce préfixe nous appartiennent
 const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 // SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package';
@@ -20,6 +21,11 @@ const PRECACHE = [
   './index.html',
   './manifest.webmanifest',
   './icone.svg',
+  './commun/style.css',
+  './commun/coeur.js',
+  './modules/convertir/convertir.css',
+  './modules/convertir/partage.js',
+  './modules/convertir/convertir.js',
   `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
   `${CDN}/turndown/7.1.2/turndown.min.js`,
   `${CDN}/pdf.js/3.11.174/pdf.min.js`,
@@ -28,6 +34,8 @@ const PRECACHE = [
   `${CDN}/PapaParse/5.4.1/papaparse.min.js`,
   `${CDN}/jszip/3.10.1/jszip.min.js`,
 ];
+
+const LOCAUX = new Set(PRECACHE.filter(u => /^\.\/.+\.(js|css)$/.test(u)).map(u => new URL(u, self.location).href));
 
 // OCR : mis en cache à la volée (voir le gestionnaire fetch), pas au préchargement
 const NPM = 'https://cdn.jsdelivr.net/npm';
@@ -49,7 +57,9 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const noms = await caches.keys();
-    await Promise.all(noms.filter(n => n !== VERSION).map(n => caches.delete(n)));
+    // L'ancien outil (convert-to-markdown) partage l'origine github.io : ne jamais
+    // toucher à ses caches, seulement aux anciennes versions des nôtres.
+    await Promise.all(noms.filter(n => n.startsWith(PREFIXE) && n !== VERSION).map(n => caches.delete(n)));
     await self.clients.claim();
   })());
 });
@@ -71,6 +81,22 @@ self.addEventListener('fetch', event => {
         return reseau;
       } catch {
         return (await caches.match('./index.html')) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Fichiers locaux de l'application (scripts, styles) : réseau d'abord comme les
+  // pages, sinon une modification resterait invisible jusqu'au prochain changement
+  // de VERSION ; repli sur le cache hors-ligne.
+  if (LOCAUX.has(req.url)) {
+    event.respondWith((async () => {
+      try {
+        const reseau = await fetch(req);
+        if (reseau.ok) (await caches.open(VERSION)).put(req, reseau.clone());
+        return reseau;
+      } catch {
+        return (await caches.match(req)) || Response.error();
       }
     })());
     return;

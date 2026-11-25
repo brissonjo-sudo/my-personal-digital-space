@@ -1,4 +1,4 @@
-// index.html ouvert directement depuis le disque (file://), sans serveur : usage
+// L'application ouverte directement depuis le disque (file://), sans serveur : usage
 // documenté dans le README. Origine « nulle », pas de service worker : la CSP,
 // les workers blob: et la vérification d'intégrité doivent tout de même fonctionner.
 'use strict';
@@ -10,11 +10,18 @@ const { test, expect } = require('./aide');
 const { fichierLocal, empreintesLocales, URL_CDN } = require('./serveur');
 
 test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) => {
-  // Copie d'index.html avec les empreintes des copies locales (les URLs restent
-  // celles des CDN, interceptées ci-dessous et servies depuis node_modules)
-  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'conv-md-'));
+  // Copie de l'application entière (index.html, commun/, modules/…) avec les empreintes
+  // des copies locales (les URLs restent celles des CDN, interceptées ci-dessous et
+  // servies depuis node_modules)
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mpds-'));
+  const racine = path.join(__dirname, '..');
+  for (const f of ['index.html', 'manifest.webmanifest', 'icone.svg', 'commun', 'modules']) {
+    fs.cpSync(path.join(racine, f), path.join(dossier, f), { recursive: true });
+  }
+  const fichiersTexte = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
+    e.isDirectory() ? fichiersTexte(path.join(d, e.name)) : /\.(html|js)$/.test(e.name) ? [path.join(d, e.name)] : []);
+  for (const f of fichiersTexte(dossier)) fs.writeFileSync(f, empreintesLocales(fs.readFileSync(f, 'utf8')));
   const fichier = path.join(dossier, 'index.html');
-  fs.writeFileSync(fichier, empreintesLocales(fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')));
 
   await page.route(url => URL_CDN.test(url.href), route => {
     const local = fichierLocal(route.request().url());
@@ -22,7 +29,8 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
     route.fulfill({ path: local, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'text/javascript' } });
   });
   await page.goto('file://' + fichier);
-  await page.waitForFunction(() => window.mammoth && window.TurndownService && window.pdfjsLib && window.XLSX && window.Papa && window.JSZip);
+  await page.waitForFunction(() => window.mammoth && window.TurndownService && window.pdfjsLib && window.XLSX && window.Papa && window.JSZip
+    && document.getElementById('zone-depot'));
 
   const r = await page.evaluate(async () => {
     const wb = XLSX.utils.book_new();
@@ -38,6 +46,7 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
   });
   expect(r.journal.map(j => `${j.nom}:${j.statut}`)).toEqual(['a.csv:ok', 'b.xlsx:ok', 'c.pdf:ok', 'd.docx:ok', 'e.html:ok']);
   expect(r.resultats.find(x => x.nom === 'c.pdf').md).toContain('Arrêté municipal du maire');
+  expect(r.stats).toEqual({ converties: 2, replis: 0 });   // worker blob construit depuis codePartage() aussi en file://
   expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
   fs.rmSync(dossier, { recursive: true, force: true });
 });
