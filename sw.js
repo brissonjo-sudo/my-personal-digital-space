@@ -1,0 +1,92 @@
+/* Service worker — fonctionnement 100 % hors-ligne après la première visite.
+ *
+ * MISE À JOUR :
+ *  - Modifier index.html seul : rien à faire. Les navigations sont servies en
+ *    « réseau d'abord » ; la nouvelle version s'affiche au rechargement suivant.
+ *  - Changer la version d'une bibliothèque CDN : mettre à jour l'URL dans
+ *    index.html ET dans PRECACHE ci-dessous, PUIS incrémenter VERSION. L'ancien
+ *    cache est purgé à l'activation ; les nouvelles libs sont prises au rechargement.
+ */
+'use strict';
+
+const VERSION = 'conv-md-v2';                 // ← nom du cache ; bump si libs CDN changent
+const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
+// SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
+const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package';
+
+// Coquille de l'application + 7 URLs CDN épinglées (6 libs + worker PDF.js).
+const PRECACHE = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icone.svg',
+  `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
+  `${CDN}/turndown/7.1.2/turndown.min.js`,
+  `${CDN}/pdf.js/3.11.174/pdf.min.js`,
+  `${CDN}/pdf.js/3.11.174/pdf.worker.min.js`,
+  `${SHEETJS}/dist/xlsx.full.min.js`,
+  `${CDN}/PapaParse/5.4.1/papaparse.min.js`,
+  `${CDN}/jszip/3.10.1/jszip.min.js`,
+];
+
+// OCR : mis en cache à la volée (voir le gestionnaire fetch), pas au préchargement
+const NPM = 'https://cdn.jsdelivr.net/npm';
+const OCR_PREFIXES = [`${NPM}/tesseract.js@`, `${NPM}/tesseract.js-core@`, `${NPM}/@tesseract.js-data/`];
+
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    // mode:'cors' pour les URLs CDN : cdnjs envoie Access-Control-Allow-Origin:*,
+    // donc addAll valide les statuts (échoue proprement sur 404) et la réponse
+    // n'est pas opaque — les <script crossorigin> et importScripts la réutilisent.
+    await cache.addAll(PRECACHE.map(u =>
+      new Request(u, { mode: u.startsWith('http') ? 'cors' : 'same-origin' })
+    ));
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const noms = await caches.keys();
+    await Promise.all(noms.filter(n => n !== VERSION).map(n => caches.delete(n)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  // Navigations : réseau d'abord (index.html à jour), repli cache hors-ligne.
+  if (req.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const reseau = await fetch(req);
+        // Seule la vraie page est conservée : une 404 ou une autre page visitée
+        // remplacerait sinon l'application hors-ligne.
+        if (reseau.ok && /\/(index\.html)?$/.test(new URL(req.url).pathname)) {
+          (await caches.open(VERSION)).put('./index.html', reseau.clone());
+        }
+        return reseau;
+      } catch {
+        return (await caches.match('./index.html')) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Tout le reste (libs épinglées, icône, manifeste) : cache d'abord, repli réseau.
+  event.respondWith((async () => {
+    const enCache = await caches.match(req);
+    if (enCache) return enCache;
+    const reponse = await fetch(req);
+    // Fichiers de l'OCR (~5 Mo, versions épinglées) : téléchargés au premier
+    // usage seulement, puis conservés pour un OCR hors-ligne.
+    if (OCR_PREFIXES.some(p => req.url.startsWith(p)) && (reponse.ok || reponse.type === 'opaque')) {
+      const cache = await caches.open(VERSION);
+      await cache.put(req, reponse.clone());
+    }
+    return reponse;
+  })());
+});
