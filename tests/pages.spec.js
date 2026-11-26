@@ -229,6 +229,8 @@ test('une page supprimée ne reste pas dans le fichier, même visée par un lien
   const lien = (p, y, cible, action) => p.node.addAnnot(ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Link', Rect: [72, y, 200, y + 20],
     ...(action ? { A: { S: 'GoTo', D: [cible.ref, 'Fit'] } } : { Dest: [cible.ref, 'Fit'] }) })));
   lien(pp[0], 640, pp[2]); lien(pp[0], 600, pp[2], true); lien(pp[0], 560, pp[1]);   // sommaire : vers la page retirée et vers une gardée
+  // note (hors formulaire) dont /P vise la page retirée : chemin générique, sans aplatissement
+  pp[0].node.addAnnot(ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Text', Rect: [400, 700, 420, 720], Contents: P.PDFString.of('note'), P: pp[2].ref })));
   const champ = doc.getForm().createTextField('reference');                         // même champ sur les pages 1 et 3 (/Kids)
   champ.setText('Valeur'); champ.addToPage(pp[0], { x: 72, y: 500, width: 200, height: 20 }); champ.addToPage(pp[2], { x: 72, y: 500, width: 200, height: 20 });
   await page.evaluate(o => MPDS.envoyer(new File([new Uint8Array(o)], 'sommaire.pdf'), 'pdf'), [...await doc.save()]);
@@ -252,6 +254,9 @@ test('une page supprimée ne reste pas dans le fichier, même visée par un lien
   expect(textes({ pages: await lire(page, octets) }).join(' ')).toContain('Valeur');   // valeur du champ aplatie
 });
 
+// Vrai pour chaque page où pdf-lib a dessiné (aplatissement) : il enveloppe alors /Contents dans un tableau (q … Q + ajout)
+const dessinees = async o => { const P = require('@cantoo/pdf-lib'), d = await P.PDFDocument.load(o);
+  return d.getPages().map(p => p.node.Contents() instanceof P.PDFArray); };
 test('une modification faite pendant l\'export n\'est pas perdue : l\'indicateur reste allumé', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1500 });
   await ouvrirDoc(page, 'lent.pdf', 2);
@@ -261,11 +266,19 @@ test('une modification faite pendant l\'export n\'est pas perdue : l\'indicateur
   const telechargement = page.waitForEvent('download');
   await bouton(page, 'Enregistrer le PDF').click();
   await expect(page.locator('#pdf-etat')).toContainText('Préparation');
+  await page.keyboard.press('h');                                           // surligneur sur la page affichée
+  const c = await page.locator('#pdf-canvas').boundingBox();
+  await page.mouse.move(c.x + 50, c.y + 50); await page.mouse.down(); await page.mouse.move(c.x + 200, c.y + 90, { steps: 5 }); await page.mouse.up();
+  await expect(page.locator('.pdf-calque [data-type="surlig"]')).toHaveCount(1);
   await mini(page, 2).dragTo(mini(page, 1));                                // réordonné pendant l'export
   liberer();
   const octets = fs.readFileSync(await (await telechargement).path());
   expect(textes({ pages: await lire(page, octets) })).toEqual(['Page 1', 'Page 2']);   // état au moment du clic
+  expect(await dessinees(octets)).toEqual([false, false]);                  // le surlignage n'y est pas non plus
   await expect(page.locator('#pdf-modif')).toHaveText('● Modifications non enregistrées');
-  expect(textes(await exporter(page, 'Enregistrer le PDF'))).toEqual(['Page 2', 'Page 1']);   // le réordonnancement est bien là
+  const [dl] = await Promise.all([page.waitForEvent('download'), bouton(page, 'Enregistrer le PDF').click()]);
+  const apres = fs.readFileSync(await dl.path());
+  expect(textes({ pages: await lire(page, apres) })).toEqual(['Page 2', 'Page 1']);   // le travail fait pendant l'export est bien là
+  expect(await dessinees(apres)).toEqual([false, true]);
   await expect(page.locator('#pdf-modif')).toHaveText('');
 });

@@ -84,7 +84,7 @@
   async function construire(pages, avis = []) {
     pages = pages.map(p => ({ source: p.source, index: p.index, rotation: p.rotation, annots: structuredClone(p.annots || []) }));
     const valeurs = new Map(pages.map(p => [p.source, new Map(p.source.valeurs || [])]));
-    const { PDFDocument, PDFName, PDFObjectCopier, PDFPage, degrees } = await bibliotheque();
+    const { PDFDocument, PDFDict, PDFName, PDFObjectCopier, PDFPage, degrees } = await bibliotheque();
     const polices = new Map();
     const sortie = await PDFDocument.create();
     const copies = new Map();    // page du modèle → page copiée
@@ -104,6 +104,10 @@
       const cat = lecteur.catalog;
       if (cat.has(PDFName.of('Outlines'))) perdus.add('les signets');
       if (cat.has(PDFName.of('StructTreeRoot'))) perdus.add("le balisage d'accessibilité");
+      const noms = cat.lookup(PDFName.of('Names'));
+      if (noms && noms.has && noms.has(PDFName.of('EmbeddedFiles'))) perdus.add('les pièces jointes');
+      if (cat.has(PDFName.of('PageLabels'))) perdus.add('la numérotation des pages');
+      if (lecteur.getTitle() || lecteur.getAuthor()) perdus.add('les métadonnées (titre, auteur)');
       // Copie par référence avec un seul copieur (ressources partagées) : un lien vers une page gardée
       // pointe ainsi sur SA copie, pas sur un doublon hors de l'arbre des pages (cas de copyPages)
       await lecteur.flush();
@@ -120,7 +124,11 @@
       sortie.addPage(c);
       await aplatir(sortie, c, p.annots || [], polices);
     }
-    if (perdus.size) avis.push('Non conservés dans le fichier exporté : ' + [...perdus].join(' et ') + '.');
+    // Garde-fou de confidentialité : aucune page hors de celles demandées ne doit voyager dans le fichier
+    const TYPE = PDFName.of('Type');
+    const n = sortie.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFDict && String(o.get(TYPE)) === '/Page').length;
+    if (n !== pages.length) throw new Error('le fichier contiendrait ' + n + ' pages au lieu de ' + pages.length + ' (référence vers une page retirée).');
+    if (perdus.size) { const l = [...perdus]; avis.push('Non conservés dans le fichier exporté : ' + (l.length > 1 ? l.slice(0, -1).join(', ') + ' et ' : '') + l[l.length - 1] + '.'); }
     return sortie.save();
   }
 
