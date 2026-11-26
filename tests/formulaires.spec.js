@@ -306,3 +306,34 @@ test('export sans saisie : le formulaire est aplati quand même (plus aucun widg
   expect(annots ? annots.size() : 0).toBe(0);
   expect((await textes(page, sortie))[0]).toContain('Verrouillé');
 });
+
+// Revue PR #5 n° 7 : sur une même ligne, des champs de hauteurs différentes ne font plus zigzaguer le focus
+test('ordre de tabulation par rangées : gauche puis droite sur une ligne, même si la droite est plus haute', async ({ page }) => {
+  const doc = await P.PDFDocument.create(), p = doc.addPage([595, 842]), form = doc.getForm();
+  form.createTextField('ligne1-gauche').addToPage(p, rect([72, 700, 150, 16]));    // haut à l'écran : 126
+  form.createTextField('ligne1-droite').addToPage(p, rect([300, 698, 150, 30]));   // haut à l'écran : 114 (plus haut)
+  form.createTextField('ligne2').addToPage(p, rect([72, 640, 150, 16]));
+  await ouvrir(page, Buffer.from(await doc.save()));
+  await champ(page, 'ligne1-gauche').focus();
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne1-droite');
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne2');
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne1-gauche');
+});
+
+// Revue PR #5 n° 6 : un widget impossible à figer (sur aucune page) n'est plus retiré en silence
+test('champ impossible à figer : signalé par un avertissement à l\'export', async ({ page }) => {
+  const doc = await P.PDFDocument.create(), p = doc.addPage([595, 842]), form = doc.getForm();
+  form.createTextField('visible').addToPage(p, rect([72, 700, 200, 20]));
+  const perdu = form.createTextField('orphelin');
+  perdu.addToPage(p, rect([72, 600, 200, 20])); perdu.setText('Valeur du fichier');
+  const w = perdu.acroField.getWidgets()[0], ref = doc.context.getObjectRef(w.dict);
+  p.node.removeAnnot(ref); w.dict.delete(P.PDFName.of('P'));   // widget rattaché à aucune page
+  await ouvrir(page, Buffer.from(await doc.save()), 'orphelin.pdf');
+  await champ(page, 'visible').fill('Saisi');
+  await exporter(page);
+  await expect(page.locator('#pdf-etat')).toContainText('Champ « orphelin » de « orphelin.pdf » non figé : retiré du fichier exporté.');
+});

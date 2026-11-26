@@ -42,7 +42,7 @@
     const { PDFName } = PDFLib;
     if (!lecteur.catalog.has(PDFName.of('AcroForm'))) return;
     if (!valeurs.size) {   // sans saisie, un formulaire mal formé ne doit pas empêcher l'export du document
-      try { if (aplatir(lecteur.getForm())) avis.push('Le formulaire de « ' + src.nom + ' » est figé dans le fichier exporté : ses champs n\'y sont plus modifiables.'); }
+      try { if (aplatir(lecteur.getForm(), src, avis)) avis.push('Le formulaire de « ' + src.nom + ' » est figé dans le fichier exporté : ses champs n\'y sont plus modifiables.'); }
       catch (err) { avis.push('Le formulaire de « ' + src.nom + ' » n\'a pas pu être figé (' + (err.message || err) + ') : ses champs sont copiés tels quels.'); }
       return;
     }
@@ -55,11 +55,31 @@
       try { appliquer(form, nom, v); }
       catch (err) { throw new Error('Champ « ' + nom + ' » de « ' + src.nom + ' » : ' + (err.message || err)); }
     }
-    try { aplatir(form); }
+    try { aplatir(form, src, avis); }
     catch (err) { throw new Error('Le formulaire de « ' + src.nom + ' » ne peut pas être aplati (' + (err.message || err) + ').'); }
   }
-  // Vrai si le formulaire avait des champs (aplatis)
-  const aplatir = form => { if (!form.getFields().length) return false; form.flatten(); return true; };
+  // Aplatit comme PDFForm.flatten du fork, dont il reprend la boucle (2.11.1, figée par SRI : les méthodes
+  // internes ne changent pas sans changer l'empreinte), mais signale les champs dont un widget n'a pas pu
+  // être figé (page introuvable, apparence absente) : le fork les retire en silence. Vrai s'il y avait des champs.
+  function aplatir(form, src, avis) {
+    const champs = form.getFields();
+    if (!champs.length) return false;
+    form.updateFieldAppearances();
+    const perdus = new Set();
+    for (const champ of champs) {
+      for (const w of champ.acroField.getWidgets()) {
+        try { form.flattenWidgetOntoPage(form.findWidgetPage(w), w, form.findWidgetAppearanceRef(champ, w)); }
+        catch { perdus.add(champ.getName()); }
+      }
+      form.removeField(champ);
+    }
+    form.flattenOrphanWidgets();
+    if (perdus.size) {
+      const noms = [...perdus].map(n => '« ' + n + ' »').join(', ');
+      avis.push((perdus.size > 1 ? 'Champs ' + noms + ' de « ' + src.nom + ' » non figés : retirés' : 'Champ ' + noms + ' de « ' + src.nom + ' » non figé : retiré') + ' du fichier exporté.');
+    }
+    return true;
+  }
 
   MPDS.pdfFormulaireExport = { remplir };
 })();

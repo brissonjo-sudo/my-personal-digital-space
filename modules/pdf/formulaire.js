@@ -115,6 +115,19 @@
       return c;
     }
 
+    // Ordre de lecture par rangées : un champ qui recouvre la rangée courante sur plus de la moitié de la
+    // plus petite hauteur la rejoint (champs de hauteurs différentes sur une même ligne) ; rangées de haut
+    // en bas, champs de gauche à droite dans chaque rangée
+    function ordreLecture(cs) {
+      const rangees = [];
+      for (const c of [...cs].sort((a, b) => a.y - b.y)) {
+        const r = rangees[rangees.length - 1];
+        if (r && Math.min(r.bas, c.y + c.h) - c.y > Math.min(r.hmin, c.h) / 2) { r.cs.push(c); r.bas = Math.max(r.bas, c.y + c.h); r.hmin = Math.min(r.hmin, c.h); }
+        else rangees.push({ cs: [c], bas: c.y + c.h, hmin: c.h });
+      }
+      return rangees.flatMap(r => r.cs.sort((a, b) => a.x - b.x));
+    }
+
     // Pose la couche sur la page qui vient d'être affichée ; p : page PDF.js, base : viewport à l'échelle 1
     async function poser(feuille, entree, p, base) {
       const mon = ++jeton, source = entree.source;
@@ -128,7 +141,8 @@
       const posees = widgets.map(a => {
         const [x0, y0, x1, y1] = a.rect, d = MPDS.pdfCoord.dePdf(info, x0, y0), f = MPDS.pdfCoord.dePdf(info, x1, y1);
         return { a, g: genre(a), x: Math.min(d.x, f.x), y: Math.min(d.y, f.y), w: Math.abs(f.x - d.x), h: Math.abs(f.y - d.y) };
-      }).filter(c => c.w > 0 && c.h > 0).sort((c, d) => c.y - d.y || c.x - d.x);   // ordre de tabulation : de haut en bas
+      }).filter(c => c.w > 0 && c.h > 0);
+      posees.splice(0, posees.length, ...ordreLecture(posees));   // ordre de tabulation
       const homonymes = new Map();   // nombre de cases par nom
       for (const { a, g } of posees) if (g === 'case') homonymes.set(a.fieldName, (homonymes.get(a.fieldName) || 0) + 1);
       for (const { a, g, x, y, w, h } of posees) {
