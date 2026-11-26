@@ -51,6 +51,7 @@ test('un PDF nommé sans extension part au convertisseur PDF', async ({ page }) 
 
 // Revue PR #6 n° 2 : le texte d'un tampon posé sur un scan ne doit pas faire passer la page pour une page texte
 test('scan tamponné : la page reste un scan et l\'OCR est proposé', async ({ page }) => {
+  test.setTimeout(180_000);   // OCR réel
   await page.evaluate(async () => MPDS.envoyer(await Fab.pdfScanne('courrier.pdf', [['Courrier de la voirie']]), 'pdf'));
   await expect(page.locator('#pdf-canvas')).toBeVisible();
   await page.getByRole('button', { name: 'Tampon (P)', exact: true }).click();

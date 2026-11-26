@@ -93,7 +93,7 @@
           `/Resources<</Font<</F1 ${police} 0 R>>>>>>`));
         continue;
       }
-      // { image: lignes, cm, mention: [{ t, x, y }], forme } : image placée par `cm` (page entière par
+      // { image: lignes, cm, mention: [{ t, x, y, invisible }], forme } : image placée par `cm` (page entière par
       // défaut), texte posé dessus, image enveloppée dans un XObject de formulaire
       const opt = Array.isArray(lignes) ? { image: lignes } : lignes;
       const c = canvasTexte(opt.image);
@@ -110,7 +110,7 @@
       }
       if (opt.mention) {
         police = police || ajouter('<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>');
-        flux += '\n' + opt.mention.map(it => `BT /F1 12 Tf ${it.x} ${it.y} Td (${it.t}) Tj ET`).join('\n');
+        flux += '\n' + opt.mention.map(it => `BT ${it.invisible ? '3 Tr ' : ''}/F1 12 Tf ${it.x} ${it.y} Td (${it.t}) Tj ET`).join('\n');
       }
       const contenu = ajouter(`<</Length ${flux.length}>>\nstream\n${flux}\nendstream`);
       enfants.push(ajouter(`<</Type/Page/Parent ${arbre} 0 R/MediaBox[0 0 595 842]/Contents ${contenu} 0 R` +

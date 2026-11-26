@@ -141,9 +141,15 @@ test('scan avec une mention posée dessus : page scannée ; petit logo sur une p
       { image: ['Courrier numerise'], mention: m[0] },                   // scan + mention
       { image: ['Courrier numerise'], mention: m[1], forme: true },      // idem, image dans un XObject de formulaire
       { image: ['Logo'], cm: '120 0 0 170 40 640', mention: m[2] },      // petit logo + texte court
+      { image: ['Scan cherchable'], mention: m[3] },                     // couche OCR invisible (3 Tr) : déjà du texte
+      { image: ['Fond de page'], mention: m[4] },                        // 200 caractères ou plus : page texte
     ])]);
     return __resume().resultats[0].md;
-  }, [mention('Transmis au service voirie'), mention('Transmis au service juridique'), mention('Page texte avec un petit logo')]);
+  }, [mention('Transmis au service voirie'), mention('Transmis au service juridique'), mention('Page texte avec un petit logo'),
+      [{ t: 'Couche OCR invisible du scanner', x: 72, y: 700, invisible: true }],
+      Array.from({ length: 5 }, (_, i) => ({ t: `Ligne ${i + 1} de texte sur un fond de page plein cadre, assez longue`, x: 40, y: 700 - i * 20 }))]);
   expect(md).toContain('> ⚠️ Pages 1, 2 : image presque sans texte (scan probable)');
   expect(md).toContain('Page texte avec un petit logo');
+  expect(md).toContain('Couche OCR invisible du scanner');
+  expect(md).toContain('Ligne 5 de texte sur un fond');
 });

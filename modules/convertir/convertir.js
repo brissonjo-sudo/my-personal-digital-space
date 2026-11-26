@@ -445,8 +445,10 @@ async function lirePagePdf(page) {
   if (car < SEUIL_SCAN_COUVERT) {
     const images = new Set(OPS_IMAGE.map(n => pdfjsLib.OPS[n]).filter(v => v !== undefined));
     const ops = await page.getOperatorList();
+    // Texte invisible (Tr 3 ou 7) : scan déjà « cherchable », sa couche OCR est gardée
+    const invisible = ops.fnArray.some((f, i) => f === pdfjsLib.OPS.setTextRenderingMode && (ops.argsArray[i][0] & 3) === 3);
     p.scannee = car < SEUIL_PDF_SCAN ? ops.fnArray.some(f => images.has(f))
-      : aireImages(ops, images) >= COUVERTURE_SCAN * Math.abs((x1 - x0) * (y1 - y0));
+      : !invisible && aireImages(ops, images) >= COUVERTURE_SCAN * Math.abs((x1 - x0) * (y1 - y0));
   }
   return p;
 }
