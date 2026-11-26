@@ -72,12 +72,16 @@
         return false;
       } finally { occupe = false; maj(); }
     }
-    b.enregistrer.addEventListener('click', async () => { if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(); maj(); } });
+    b.enregistrer.addEventListener('click', async () => {
+      const v = modele.version;   // une modification faite pendant l'export laisse l'indicateur allumé
+      if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(v); maj(); }
+    });
     b.extraire.addEventListener('click', () => exporter(modele.liste.filter(p => modele.selection.has(p)), 'extrait'));
     // Passerelle : le document tel qu'affiché (pages, annotations, formulaire) part au convertisseur,
     // en mémoire, sous le nom d'origine (le .md portera ce nom)
     b.markdown.addEventListener('click', () => exporter(modele.liste.slice(), '',
-      (octets, nom) => MPDS.envoyer(new File([octets], nom, { type: 'application/pdf' }), 'convertir')));
+      // le convertisseur choisit d'après l'extension : un PDF nommé « Scan_0001 » ou « x.txt » doit finir en .pdf
+      (octets, nom) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir')));
 
     return { maj };
   }

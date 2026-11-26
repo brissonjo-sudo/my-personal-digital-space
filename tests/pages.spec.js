@@ -220,3 +220,52 @@ test('échec de l\'export : message, aucun téléchargement, boutons rendus', as
   await expect(bouton(page, 'Enregistrer le PDF')).toBeEnabled();
   expect(telecharge).toBe(false);
 });
+
+// Revue PR #2 : copyPages recopiait toute page visée par un lien ou un widget, même supprimée
+test('une page supprimée ne reste pas dans le fichier, même visée par un lien ou un champ', async ({ page }) => {
+  const P = require('@cantoo/pdf-lib');
+  const doc = await P.PDFDocument.create(), ctx = doc.context, f = await doc.embedFont(P.StandardFonts.Helvetica);
+  const pp = ['Garde un', 'Garde deux', 'SECRET'].map(t => { const p = doc.addPage([595, 842]); p.drawText(t, { x: 72, y: 700, size: 24, font: f }); return p; });
+  const lien = (p, y, cible, action) => p.node.addAnnot(ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Link', Rect: [72, y, 200, y + 20],
+    ...(action ? { A: { S: 'GoTo', D: [cible.ref, 'Fit'] } } : { Dest: [cible.ref, 'Fit'] }) })));
+  lien(pp[0], 640, pp[2]); lien(pp[0], 600, pp[2], true); lien(pp[0], 560, pp[1]);   // sommaire : vers la page retirée et vers une gardée
+  const champ = doc.getForm().createTextField('reference');                         // même champ sur les pages 1 et 3 (/Kids)
+  champ.setText('Valeur'); champ.addToPage(pp[0], { x: 72, y: 500, width: 200, height: 20 }); champ.addToPage(pp[2], { x: 72, y: 500, width: 200, height: 20 });
+  await page.evaluate(o => MPDS.envoyer(new File([new Uint8Array(o)], 'sommaire.pdf'), 'pdf'), [...await doc.save()]);
+  await expect(page.locator('.pdf-mini')).toHaveCount(3);
+  await mini(page, 3).click();
+  await bouton(page, 'Supprimer').click();
+  await expect(page.locator('.pdf-mini')).toHaveCount(2);
+
+  const [dl] = await Promise.all([page.waitForEvent('download'), bouton(page, 'Enregistrer le PDF').click()]);
+  const octets = fs.readFileSync(await dl.path());
+  const sortie = await P.PDFDocument.load(octets);
+  const objets = sortie.context.enumerateIndirectObjects().map(([, o]) => o);
+  const flux = objets.filter(o => o instanceof P.PDFRawStream).map(o => Buffer.from(P.decodePDFRawStream(o).decode()).toString('latin1')).join('\n');
+  expect(flux).not.toMatch(/SECRET|534543524554/i);   // ni en clair ni en hexadécimal (encodage de drawText)
+  const TYPE = P.PDFName.of('Type');
+  expect(objets.filter(o => o instanceof P.PDFDict && String(o.get(TYPE)) === '/Page')).toHaveLength(2);   // aucun doublon de page
+  // le lien vers la page gardée vise bien la page 2 du fichier exporté
+  const dest = sortie.getPage(0).node.Annots().asArray().map(r => sortie.context.lookup(r)).map(a => a.lookup(P.PDFName.of('Dest'))).filter(Boolean);
+  expect(dest).toHaveLength(1);
+  expect(dest[0].get(0)).toBe(sortie.getPage(1).ref);
+  expect(textes({ pages: await lire(page, octets) }).join(' ')).toContain('Valeur');   // valeur du champ aplatie
+});
+
+test('une modification faite pendant l\'export n\'est pas perdue : l\'indicateur reste allumé', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1500 });
+  await ouvrirDoc(page, 'lent.pdf', 2);
+  let liberer;
+  const bloque = new Promise(r => { liberer = r; });
+  await page.route('**/pdf-lib.min.js', async r => { await bloque; await r.continue(); });   // premier export : bibliothèque lente
+  const telechargement = page.waitForEvent('download');
+  await bouton(page, 'Enregistrer le PDF').click();
+  await expect(page.locator('#pdf-etat')).toContainText('Préparation');
+  await mini(page, 2).dragTo(mini(page, 1));                                // réordonné pendant l'export
+  liberer();
+  const octets = fs.readFileSync(await (await telechargement).path());
+  expect(textes({ pages: await lire(page, octets) })).toEqual(['Page 1', 'Page 2']);   // état au moment du clic
+  await expect(page.locator('#pdf-modif')).toHaveText('● Modifications non enregistrées');
+  expect(textes(await exporter(page, 'Enregistrer le PDF'))).toEqual(['Page 2', 'Page 1']);   // le réordonnancement est bien là
+  await expect(page.locator('#pdf-modif')).toHaveText('');
+});

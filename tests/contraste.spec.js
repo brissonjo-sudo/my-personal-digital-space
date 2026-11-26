@@ -15,7 +15,7 @@ const TEXTE = [   // [encre, fond]
 ];
 const NON_TEXTE = [  // [trait, fond]
   ['bord-ctrl', 'bg'], ['bord-ctrl', 'surface'], ['bord-ctrl', 'stage'], ['focus', 'bg'], ['focus', 'surface'], ['focus', 'stage'],
-  ['accent-fort', 'accent-fond'], ['rail-focus', 'rail'], ['rail-focus', 'rail-actif'], ['page-accent', 'page'], ['page-accent', 'champ-fond'],
+  ['accent-fort', 'accent-fond'], ['rail-focus', 'rail'], ['rail-focus', 'rail-actif'], ['page-accent', 'page'], ['page-accent', 'champ-fond'], ['page-err', 'page'], ['page-err', 'champ-fond'],
 ];
 
 for (const schema of ['light', 'dark']) {

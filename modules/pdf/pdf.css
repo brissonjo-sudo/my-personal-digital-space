@@ -49,8 +49,11 @@
 .pdf-palette { display: inline-flex; gap: .1rem; align-items: center; }
 .pdf-pastille {
   width: 2.25rem; height: 2.25rem; padding: 5px; cursor: pointer; border-radius: 50%; border: 2px solid transparent;
-  background-clip: content-box; background-color: transparent;
+  background: transparent;
 }
+/* Filet autour du disque : noir sur fond sombre et jaune sur fond clair restent visibles ; l'anneau
+   de sélection (bordure) est séparé du disque par le padding */
+.pdf-pastille > span { display: block; width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 0 1px var(--bord-ctrl); }
 .pdf-pastille[aria-pressed="true"] { border-color: var(--text); }
 .pdf-reglage { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--muted); }
 .pdf-reglage input[type="number"] { width: 4.25rem; }
@@ -125,7 +128,7 @@
   color: var(--page-texte); background: var(--page); border: 1px dashed var(--page-accent); border-radius: 2px;
 }
 .pdf-saisie:focus-visible, .pdf-champ:focus { outline: 2px solid var(--page-accent); }
-.pdf-saisie[aria-invalid="true"] { border: 2px solid var(--err); }
+.pdf-saisie[aria-invalid="true"] { border: 2px solid var(--page-err); }
 
 /* ---- Signature (fenêtre modale) et poignée de redimensionnement ---- */
 .pdf-calque[data-outil="signature"], .pdf-calque[data-outil="tampon"] { cursor: copy; }
@@ -158,7 +161,7 @@
 .pdf-calque[data-outil="sel"] ~ .pdf-formulaire .pdf-champ { pointer-events: auto; }
 .pdf-champ:focus { background: var(--page); }
 .pdf-champ:is(textarea) { padding: .15em .3em; resize: none; line-height: 1.2; }
-.pdf-champ[aria-invalid="true"] { border: 2px solid var(--err); }
+.pdf-champ[aria-invalid="true"] { border: 2px solid var(--page-err); }
 .pdf-champ:disabled, .pdf-champ[readonly] { background: var(--champ-off); border-color: var(--champ-off-bord); color: var(--champ-off-texte); }
 .pdf-champ-case, .pdf-champ-radio { appearance: none; -webkit-appearance: none; padding: 0; cursor: pointer; display: grid; place-content: center; }
 .pdf-champ-radio { border-radius: 50%; }
