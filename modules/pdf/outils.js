@@ -1,0 +1,125 @@
+// Module PDF — outils d'annotation : barre d'outils (sélection, surligneur, texte, dessin, gomme,
+// annuler/rétablir, palette, réglages) et raccourcis clavier. Assemble le modèle (annotations.js)
+// et le calque (calque.js). Publie MPDS.pdfOutils.creer(ctx).
+//   ctx = { modele, barre, aller(n), majBarre(), message(texte, erreur) }
+// Renvoie { poser, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
+(() => {
+  'use strict';
+  const OUTILS = [['sel', 'Sélection', 'V', '↖'], ['surlig', 'Surligneur', 'H', '▬'], ['texte', 'Texte', 'T', 'T'], ['dessin', 'Dessin', 'D', '✎'], ['gomme', 'Gomme', 'E', '⌫']];
+  const COULEURS = [['Noir', '#000000'], ['Rouge', '#dc2626'], ['Bleu', '#2563eb'], ['Vert', '#16a34a'], ['Orange', '#f97316'], ['Jaune', '#facc15']];
+  const POLICES = [['Helvetica', 'Helvetica'], ['TimesRoman', 'Times'], ['Courier', 'Courier']];
+  const PAR_OUTIL = { surlig: '#facc15', texte: '#000000', dessin: '#dc2626' };   // couleur initiale de chaque outil
+  const REGLAGES = { surlig: ['opacite'], texte: ['police', 'taille'], dessin: ['epaisseur'] };
+  const SAISIE = /^(INPUT|TEXTAREA|SELECT)$/;
+
+  function creer(ctx) {
+    const { modele, barre } = ctx;
+    const r = { outil: 'sel', couleur: PAR_OUTIL.texte, police: 'Helvetica', taille: 18, epaisseur: 3, opacite: 25 };
+    const boutons = {}, pastilles = {}, reglages = {}, memoire = { ...PAR_OUTIL };
+    let annuler = null, retablir = null;
+
+    const bouton = (id, libelle, picto, titre) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pdf-btn'; b.id = 'pdf-' + id;
+      b.setAttribute('aria-label', titre); b.title = titre;
+      const s = document.createElement('span');
+      s.setAttribute('aria-hidden', 'true'); s.textContent = picto;
+      b.append(s, libelle ? ' ' + libelle : '');
+      barre.append(b);
+      return b;
+    };
+    const champ = (id, libelle, input, sortie) => {
+      const l = document.createElement('label');
+      l.className = 'pdf-reglage'; l.id = 'pdf-reglage-' + id;
+      input.id = 'pdf-' + id;
+      l.append(libelle + ' ', input);
+      if (sortie) l.append(sortie);
+      barre.append(l);
+      reglages[id] = l;
+      return input;
+    };
+
+    const annotations = MPDS.pdfAnnotations.creer(modele, entree => {
+      const i = modele.liste.indexOf(entree);
+      if (i >= 0 && entree !== calque.entree()) ctx.aller(i + 1);   // annuler/rétablir sur une autre page : on s'y rend
+      else calque.redessiner();
+      maj(); ctx.majBarre();
+    });
+    const calque = MPDS.pdfCalque.creer({ annotations, r, message: ctx.message });
+
+    function maj() {
+      annuler.disabled = !annotations.peutAnnuler();
+      retablir.disabled = !annotations.peutRetablir();
+    }
+
+    function choisirOutil(o) {
+      if (r.outil in memoire) memoire[r.outil] = r.couleur;
+      r.outil = o;
+      if (o in memoire) r.couleur = memoire[o];
+      for (const [id, b] of Object.entries(boutons)) b.setAttribute('aria-pressed', String(id === o));
+      for (const [id, p] of Object.entries(pastilles)) p.setAttribute('aria-pressed', String(id === r.couleur));
+      for (const [id, l] of Object.entries(reglages)) l.hidden = !(REGLAGES[o] || []).includes(id);
+      palette.hidden = !(o in memoire);
+      calque.redessiner();   // le curseur et la prise des éléments dépendent de l'outil
+    }
+
+    // ---- Construction de la barre ----
+    for (const [id, nom, touche, picto] of OUTILS) {
+      boutons[id] = bouton('outil-' + id, nom, picto, `${nom} (${touche})`);
+      boutons[id].addEventListener('click', () => choisirOutil(id));
+    }
+    const palette = document.createElement('span');
+    palette.className = 'pdf-palette'; palette.setAttribute('role', 'group'); palette.setAttribute('aria-label', 'Couleur');
+    for (const [nom, hex] of COULEURS) {
+      const p = document.createElement('button');
+      p.type = 'button'; p.className = 'pdf-pastille'; p.style.background = hex;
+      p.setAttribute('aria-label', 'Couleur : ' + nom); p.title = nom;
+      p.addEventListener('click', () => { r.couleur = hex; choisirOutil(r.outil); });
+      pastilles[hex] = p; palette.append(p);
+    }
+    barre.append(palette);
+    const police = champ('police', 'Police', document.createElement('select'));
+    for (const [cle, nom] of POLICES) police.add(new Option(nom, cle));
+    police.addEventListener('change', () => { r.police = police.value; });
+    const nombre = (id, libelle, min, max, pas, cle, type) => {
+      const i = Object.assign(document.createElement('input'), { type, min, max, step: pas, value: r[cle] });
+      const sortie = type === 'range' ? document.createElement('output') : null;
+      const lire = () => { r[cle] = Math.min(max, Math.max(min, Number(i.value) || r[cle])); if (sortie) sortie.textContent = r[cle] + (cle === 'opacite' ? ' %' : ''); };
+      i.addEventListener('input', lire);
+      champ(id, libelle, i, sortie);
+      lire();
+    };
+    nombre('taille', 'Taille', 6, 144, 1, 'taille', 'number');
+    nombre('epaisseur', 'Épaisseur', 1, 30, 1, 'epaisseur', 'range');
+    nombre('opacite', 'Opacité', 5, 100, 5, 'opacite', 'range');
+    barre.append(Object.assign(document.createElement('span'), { className: 'pdf-sep' }));
+    annuler = bouton('annuler', 'Annuler', '↶', 'Annuler (Ctrl+Z)');
+    retablir = bouton('retablir', 'Rétablir', '↷', 'Rétablir (Ctrl+Y)');
+    annuler.addEventListener('click', () => annotations.annuler());
+    retablir.addEventListener('click', () => annotations.retablir());
+    choisirOutil('sel'); maj();
+
+    // ---- Clavier : seulement si le module est affiché, un document ouvert, et hors champ de saisie ----
+    function surTouche(e) {
+      if (MPDS.actif() !== 'pdf' || !modele.liste.length || e.altKey || e.metaKey) return;
+      const c = e.target, k = e.key.toLowerCase();
+      if (c && (SAISIE.test(c.tagName) || c.isContentEditable)) return;
+      const outil = OUTILS.find(o => o[2].toLowerCase() === k);
+      if (e.ctrlKey && k === 'z') (e.shiftKey ? annotations.retablir : annotations.annuler)();
+      else if (e.ctrlKey && k === 'y') annotations.retablir();
+      else if (!e.ctrlKey && !e.shiftKey && outil) choisirOutil(outil[0]);
+      else if (!e.ctrlKey && e.key === 'Delete') { if (!calque.supprimerSelection()) return; }
+      else return;
+      e.preventDefault();
+    }
+    document.addEventListener('keydown', surTouche);
+
+    return {
+      poser: calque.poser,
+      vider() { calque.fermer(); annotations.vider(); maj(); },
+      detruire() { document.removeEventListener('keydown', surTouche); },
+    };
+  }
+
+  MPDS.pdfOutils = { creer };
+})();

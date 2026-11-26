@@ -52,6 +52,14 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
   await expect(page.locator('#pdf-canvas')).toBeVisible();
   await expect(page.locator('#pdf-nb')).toHaveText('2 pages');
   await expect(page.locator('.pdf-mini')).toHaveCount(2);
+  // Annotation : surligneur tracé sur le calque, aplati à l'export
+  await page.keyboard.press('h');
+  const calque = await page.locator('.pdf-calque').boundingBox();
+  await page.mouse.move(calque.x + 100, calque.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(calque.x + 250, calque.y + 180, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator('.pdf-calque [data-type="surlig"]')).toHaveCount(1);
   // Export : bibliothèque d'écriture chargée à la demande (fetch vérifié + <script src=blob:>) aussi en file://
   const [telechargement] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Pivoter à droite', exact: true }).click()
     .then(() => page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click())]);
