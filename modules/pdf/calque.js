@@ -121,13 +121,13 @@
 
     // ---- Gestes ----
     function debut(e) {
-      if (e.button !== 0 || editeur) return;   // zone de saisie ouverte : sa perte de focus valide
+      if (e.button !== 0 || editeur || geste) return;   // saisie ouverte : sa perte de focus valide ; un 2e pointeur (paume) est ignoré
       const p = pt(e), o = r.outil, g = e.target.closest('[data-id]');
       const a = g ? entree.annots.find(x => x.id === +g.dataset.id) : null;
       if (o === 'sel' && selection && e.target.classList.contains('pdf-poignee')) {   // poignée d'angle : agrandir / réduire
         const b = e.target.getBoundingClientRect(), h = pt({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
         const c = ve(selection.x, selection.y);
-        geste = { type: 'redim', a: selection, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
+        geste = { type: 'redim', a: selection, depart: p, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
         svg.setPointerCapture(e.pointerId);
         return;
       }
@@ -143,6 +143,8 @@
     function bouge(e) {
       if (!geste) return;
       const p = pt(e), d = geste.depart;
+      // Déplacer ou redimensionner : rien sous 2 px d'écran (un clic qui tremble n'est pas un déplacement)
+      if ((geste.type === 'dep' || geste.type === 'redim') && !geste.bouge && Math.hypot(p.x - d.x, p.y - d.y) * p.k <= 2) return;
       if (geste.type === 'redim') {   // facteur = distance du pointeur au coin fixe / distance initiale de la poignée
         const av = geste.avant, k = Math.min(1500 / av.w, Math.max(8 / av.w, Math.hypot(p.x - geste.c.x, p.y - geste.c.y) / geste.d0));
         Object.assign(geste.a, { w: av.w * k, h: av.h * k, ...(av.taille && { taille: av.taille * k }) });
@@ -190,10 +192,21 @@
       }
     }
 
+    // Geste interrompu (pointercancel, capture perdue, page remplacée) : un déplacement ou un
+    // redimensionnement en cours est défait, rien n'est enregistré
+    function abandonner() {
+      const g = geste;
+      geste = null;
+      if (!g) return;
+      if (g.el) g.el.remove();
+      if ((g.type === 'dep' || g.type === 'redim') && g.bouge) { Object.assign(g.a, g.avant); redessiner(); }
+    }
+
     // Pose le calque sur le canvas qui vient d'être rendu ; renvoie l'élément à insérer dans la scène.
     // base : viewport à l'échelle 1 ; inf : { view, rotation } de la page affichée.
     function poser(cv, ent, inf, base) {
-      fermerEditeur(); geste = null; selection = null;
+      validerEditeur(); fermerEditeur();   // texte en cours : posé sur la page qu'on quitte (fermé s'il est refusé)
+      abandonner(); selection = null;
       entree = ent; info = inf;
       feuille = document.createElement('div');
       feuille.className = 'pdf-feuille';
@@ -202,7 +215,8 @@
       svg.addEventListener('pointerdown', debut);
       svg.addEventListener('pointermove', bouge);
       svg.addEventListener('pointerup', fin);
-      svg.addEventListener('pointercancel', () => { if (geste && geste.el) geste.el.remove(); geste = null; });
+      svg.addEventListener('pointercancel', abandonner);
+      svg.addEventListener('lostpointercapture', abandonner);   // après pointerup, le geste est déjà clos : sans effet
       feuille.append(cv, svg);
       redessiner();
       return feuille;
@@ -218,7 +232,7 @@
 
     function fermer() { fermerEditeur(); geste = null; selection = null; svg = null; entree = null; }
 
-    return { poser, redessiner, supprimerSelection, fermer, entree: () => entree };
+    return { poser, redessiner, supprimerSelection, fermer, entree: () => entree, enGeste: () => !!geste };
   }
 
   MPDS.pdfCalque = { creer };

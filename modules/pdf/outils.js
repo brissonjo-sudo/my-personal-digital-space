@@ -2,7 +2,7 @@
 // annuler/rétablir, palette, réglages) et raccourcis clavier. Assemble le modèle (annotations.js)
 // et le calque (calque.js). Publie MPDS.pdfOutils.creer(ctx).
 //   ctx = { modele, barre, aller(n), majBarre(), message(texte, erreur) }
-// Renvoie { poser, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
+// Renvoie { poser, maj, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
 (() => {
   'use strict';
   // [id, nom, touche, icône, libellé visible] : groupe 1 icônes seules, groupe 2 (signature, tampon) avec libellé
@@ -129,6 +129,7 @@
       if (MPDS.actif() !== 'pdf' || !modele.liste.length || e.altKey || e.metaKey) return;
       const c = e.target, k = e.key.toLowerCase();
       if (c && (SAISIE.test(c.tagName) || c.isContentEditable)) return;
+      if (calque.enGeste()) return;   // pendant un tracé ou un déplacement : annuler ou changer d'outil le corromprait
       const outil = OUTILS.find(o => o[2].toLowerCase() === k);
       if (e.ctrlKey && k === 'z') (e.shiftKey ? annotations.retablir : annotations.annuler)();
       else if (e.ctrlKey && k === 'y') annotations.retablir();
@@ -141,6 +142,7 @@
 
     return {
       poser: calque.poser,
+      maj,
       vider() { calque.fermer(); annotations.vider(); maj(); },
       detruire() { document.removeEventListener('keydown', surTouche); },
     };

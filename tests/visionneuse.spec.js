@@ -281,3 +281,26 @@ test('ouverture ratée : la tâche PDF.js et son worker sont libérés', async (
   await expect(page.locator('#pdf-etat')).toContainText('corrompu');
   await expect.poll(() => page.evaluate(() => __taches.length === 1 && __taches[0].destroyed)).toBe(true);
 });
+
+// Revue PR #1 n° 5 : à fort zoom, ←/→ font défiler la page quand la scène a le focus (WCAG 2.1.1)
+test('zoom : ←/→ font défiler la scène horizontalement, PageDown change de page', async ({ page }) => {
+  await ouvrirDoc(page, 'large.pdf', 2);
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Zoom avant', exact: true }).click();
+  await page.waitForFunction(() => { const s = document.getElementById('pdf-scene'); return s.scrollWidth > s.clientWidth; });
+  await page.locator('#pdf-scene').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(numero(page)).toHaveValue('1');
+  expect(await page.evaluate(() => document.getElementById('pdf-scene').scrollLeft)).toBeGreaterThan(0);
+  await page.keyboard.press('PageDown');
+  await expect(numero(page)).toHaveValue('2');
+});
+
+// Revue PR #2 n° 6 : fermer ou recharger l'onglet avec des modifications demande confirmation
+test('beforeunload : confirmation seulement si des modifications ne sont pas enregistrées', async ({ page }) => {
+  await ouvrirDoc(page, 'a.pdf', 2);
+  const demande = () => page.evaluate(() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+  expect(await demande()).toBe(false);
+  await page.getByRole('button', { name: 'Pivoter à droite', exact: true }).click();
+  expect(await demande()).toBe(true);
+});
