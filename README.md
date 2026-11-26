@@ -9,6 +9,7 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | Module | État |
 | --- | --- |
 | 📝 **Convertir** : documents bureautiques → Markdown | ✅ disponible |
+| 📑 **PDF** : visionneuse (pages, miniatures, zoom) | ✅ disponible |
 | 📑 **PDF** : annoter, signer, tamponner, gérer les pages, remplir les formulaires | 🔨 en cours |
 
 ---
@@ -171,6 +172,7 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 
 ## 📅 Roadmap (idées, non engageant)
 
+- ✅ Module PDF : visionneuse
 - 🔨 Module PDF : annoter, signer, tamponner, pages, formulaires
 - 🔭 Images : compresser, redimensionner, convertir, retirer les métadonnées
 - 🔭 PDF : compresser, caviarder

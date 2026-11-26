@@ -5,14 +5,12 @@
 // =====================================================================
 // SECTION 1 : CONFIG
 // =====================================================================
-const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-// Empreintes (SRI) des scripts chargés hors balise <script> : worker PDF.js,
-// bibliothèques du worker de conversion, moteur OCR. Rien ne s'exécute sans
-// correspondre à son empreinte (voir scriptVerifie). Une ligne par fichier :
-// format lu par tests/verifier-cdn.js (CI) et tests/serveur.js.
+// Empreintes (SRI) des scripts chargés hors balise <script> : worker PDF.js (table
+// commune, commun/pdfjs.js), bibliothèques du worker de conversion, moteur OCR. Rien ne
+// s'exécute sans correspondre à son empreinte (voir scriptVerifie). Une ligne par
+// fichier : format lu par tests/verifier-cdn.js (CI) et tests/serveur.js.
 const INTEGRITE = {
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js': 'sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2',
+  ...MPDS.pdfjs.INTEGRITE,
   'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js': 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT',
   'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js': 'sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs',
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js': 'sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG',
@@ -405,20 +403,11 @@ function blocsPages(pages) {
   return blocs;
 }
 
-// Worker de PDF.js : téléchargé avec vérification d'empreinte puis lancé depuis une
-// URL blob: (PDF.js l'aurait sinon chargé lui-même, sans vérification)
-let workerPdfPret = null;
-function preparerPdf() {
-  if (!workerPdfPret) {
-    workerPdfPret = scriptVerifie(PDFJS_WORKER_URL)
-      .then(url => { pdfjsLib.GlobalWorkerOptions.workerSrc = url; })
-      .catch(err => { workerPdfPret = null; throw new Error(`composant PDF.js inaccessible ou altéré (${err.message})`); });
-  }
-  return workerPdfPret;
-}
+// Chargement vérifié (SRI) d'un script : fonction commune (commun/pdfjs.js)
+const scriptVerifie = url => MPDS.scriptVerifie(url, INTEGRITE);
 
-// isEvalSupported : false — PDF.js sait se passer d'eval, interdit par la CSP
-const ouvrirPdf = async ab => { await preparerPdf(); return pdfjsLib.getDocument({ data: new Uint8Array(ab), isEvalSupported: false }); };
+// PDF.js : worker vérifié (SRI) et ouverture, communs (commun/pdfjs.js)
+const ouvrirPdf = ab => MPDS.pdfjs.ouvrir(ab);
 
 // Opérations PDF.js qui dessinent une image
 const OPS_IMAGE = ['paintImageXObject', 'paintInlineImageXObject', 'paintImageMaskXObject', 'paintJpegXObject',
@@ -943,6 +932,7 @@ function creerBlobTravailleur() {
   const src = 'const URLS = ' + JSON.stringify(URLS_LIBS_TRAVAILLEUR) + ';\n' +
     'const LANGUE_PAGE = ' + JSON.stringify(navigator.language || '') + ';\n' +
     'const INTEGRITE = ' + JSON.stringify(INTEGRITE) + ';\n' +
+    'const scriptVerifie = url => (' + MPDS.scriptVerifie.toString() + ')(url, INTEGRITE);\n' +   // commun/pdfjs.js
     partage + '\n' + BOOTSTRAP_TRAVAILLEUR;
   return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
 }

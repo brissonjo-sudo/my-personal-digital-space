@@ -8,17 +8,6 @@
 // JSZip / TextDecoder existent dans les deux contextes.
 function codePartage() {
 'use strict';
-// Télécharge un script en vérifiant son empreinte (SRI, table INTEGRITE) et
-// renvoie une URL blob: à exécuter (importScripts, Worker). Un fichier modifié sur
-// le CDN, ou sans empreinte connue, est refusé : rien ne s'exécute sans vérification.
-async function scriptVerifie(url) {
-  const integrity = INTEGRITE[url];
-  if (!integrity) throw new Error('aucune empreinte connue pour ' + url);
-  const rep = await fetch(url, { integrity, mode: 'cors', credentials: 'omit' });
-  if (!rep.ok) throw new Error(`${url} : erreur HTTP ${rep.status}`);
-  return URL.createObjectURL(new Blob([await rep.blob()], { type: 'text/javascript' }));
-}
-
 const extOf    = nom => (nom.match(/\.[^.]+$/) || [''])[0].toLowerCase();
 const baseName = nom => nom.replace(/\.[^.]+$/, '');
 
@@ -676,6 +665,6 @@ async function convOdp(ab, nom, ctx) {
   return { md: blocs.join('\n\n') + '\n', images: c.images };
 }
 
-Object.assign(self, { scriptVerifie, extOf, baseName, ecapperCellule, construireTableMd, detecterEtDecoder, desescaperXml, lienDangereux, extensionImage, normaliserResultat, AFFICHAGE_FR, FORMATS_DATE_LOCAUX, deuxChiffres, separateursFr, texteDate, texteCellule, rognerGrille, lignesFeuille, convTableur, convCsv, attributXml, resoudreChemin, relationsPptx, ordreDiapos, texteParagraphePptx, paragraphesPptx, ESPACES_IGNORES, formeTextePptx, tableauPptx, TYPES_IMAGE, convPptx, analyserXml, enfantsXml, texteXml, premierXml, tousXml, ECHAPPEMENTS_MD, echapperMd, stylesOdf, ouvrirOdf, imageOdf, encadrerMd, enLigneOdf, listeOdf, tableauOdf, blocsOdf, convOdt, convOdp });
+Object.assign(self, { extOf, baseName, ecapperCellule, construireTableMd, detecterEtDecoder, desescaperXml, lienDangereux, extensionImage, normaliserResultat, AFFICHAGE_FR, FORMATS_DATE_LOCAUX, deuxChiffres, separateursFr, texteDate, texteCellule, rognerGrille, lignesFeuille, convTableur, convCsv, attributXml, resoudreChemin, relationsPptx, ordreDiapos, texteParagraphePptx, paragraphesPptx, ESPACES_IGNORES, formeTextePptx, tableauPptx, TYPES_IMAGE, convPptx, analyserXml, enfantsXml, texteXml, premierXml, tousXml, ECHAPPEMENTS_MD, echapperMd, stylesOdf, ouvrirOdf, imageOdf, encadrerMd, enLigneOdf, listeOdf, tableauOdf, blocsOdf, convOdt, convOdp });
 }
 codePartage();

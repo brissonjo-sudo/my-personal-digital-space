@@ -47,6 +47,11 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
   expect(r.journal.map(j => `${j.nom}:${j.statut}`)).toEqual(['a.csv:ok', 'b.xlsx:ok', 'c.pdf:ok', 'd.docx:ok', 'e.html:ok']);
   expect(r.resultats.find(x => x.nom === 'c.pdf').md).toContain('Arrêté municipal du maire');
   expect(r.stats).toEqual({ converties: 2, replis: 0 });   // worker blob construit depuis codePartage() aussi en file://
+  // Visionneuse PDF : worker PDF.js vérifié (SRI) et rendu, aussi en file://
+  await page.evaluate(() => MPDS.envoyer(Fab.pdf('v.pdf', [[{ t: 'Un', x: 72, y: 700, taille: 40 }], [{ t: 'Deux', x: 72, y: 700, taille: 40 }]]), 'pdf'));
+  await expect(page.locator('#pdf-canvas')).toBeVisible();
+  await expect(page.locator('#pdf-nb')).toHaveText('2 pages');
+  await expect(page.locator('.pdf-mini')).toHaveCount(2);
   expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
   fs.rmSync(dossier, { recursive: true, force: true });
 });

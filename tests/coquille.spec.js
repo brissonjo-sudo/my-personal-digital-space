@@ -3,13 +3,13 @@
 
 const { test, expect, ouvrirApp } = require('./aide');
 
-test('route par défaut : Convertir, monté, seule entrée du rail', async ({ page }) => {
+test('route par défaut : Convertir, monté ; rail : Convertir puis PDF', async ({ page }) => {
   await ouvrirApp(page);
   expect(await page.evaluate(() => location.hash)).toBe('#/convertir');
   await expect(page.locator('section[data-module="convertir"]')).toBeVisible();
   await expect(page.locator('#zone-depot')).toBeVisible();
-  await expect(page.locator('.rail-lien')).toHaveCount(1);
-  await expect(page.locator('.rail-lien')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.rail-lien')).toHaveText(['📝Convertir', '📑PDF']);
+  await expect(page.locator('.rail-lien').first()).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveTitle('My Personal Digital Space');
 });
 
@@ -41,6 +41,6 @@ test('MPDS.envoyer remet un fichier au module', async ({ page }) => {
   });
   expect(r.journal.map(j => `${j.nom}:${j.statut}`)).toEqual(['envoye.csv:ok']);
   expect(r.resultats[0].md).toContain('| 1 | 2 |');
-  const erreur = await page.evaluate(() => { try { MPDS.envoyer(Fab.texte('x.txt', 'x'), 'pdf'); } catch (e) { return e.message; } });
+  const erreur = await page.evaluate(() => { try { MPDS.envoyer(Fab.texte('x.txt', 'x'), 'inconnu'); } catch (e) { return e.message; } });
   expect(erreur).toMatch(/Module inconnu/);
 });
