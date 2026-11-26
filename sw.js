@@ -9,7 +9,7 @@
  */
 'use strict';
 
-const VERSION = 'mpds-v7';                    // ← nom du cache ; bump si libs CDN changent
+const VERSION = 'mpds-v8';                    // ← nom du cache ; bump si libs CDN changent
 const PREFIXE = 'mpds-';                      // seuls les caches de ce préfixe nous appartiennent
 const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 // SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
@@ -55,11 +55,13 @@ const PRECACHE = [
   `${SHEETJS}/dist/xlsx.full.min.js`,
   `${CDN}/PapaParse/5.4.1/papaparse.min.js`,
   `${CDN}/jszip/3.10.1/jszip.min.js`,
+  // pdf-lib : précachée car « Enregistrer » est l'action centrale du module PDF (hors ligne dès la 1re visite)
+  'https://cdn.jsdelivr.net/npm/@cantoo/pdf-lib@2.11.1/dist/pdf-lib.min.js',
 ];
 
 const LOCAUX = new Set(PRECACHE.filter(u => /^\.\/.+\.(js|css)$/.test(u)).map(u => new URL(u, self.location).href));
 
-// OCR et écriture de PDF (pdf-lib, ≈ 600 Ko) : mis en cache à la volée (voir le gestionnaire
+// OCR (et pdf-lib, déjà précachée : filet de sécurité) : mis en cache à la volée (voir le gestionnaire
 // fetch) au premier usage, pas au préchargement
 const NPM = 'https://cdn.jsdelivr.net/npm';
 const OCR_PREFIXES = [`${NPM}/tesseract.js@`, `${NPM}/tesseract.js-core@`, `${NPM}/@tesseract.js-data/`, `${NPM}/@cantoo/pdf-lib@`];

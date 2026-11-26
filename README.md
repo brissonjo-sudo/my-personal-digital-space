@@ -13,7 +13,7 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
 | 📑 **PDF** : annoter (surligneur, texte, dessin, gomme, annuler/rétablir), figé dans la page à l'export | ✅ disponible |
 | 📑 **PDF** : signer (dessin ou image au fond retiré, jamais stockée) et tamponner (10 tampons), figés dans la page à l'export | ✅ disponible |
-| 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export, y compris les Cerfa chiffrés | ✅ disponible |
+| 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export ; PDF chiffrés sans mot de passe d'ouverture pris en charge (testé sur fichiers générés, pas encore sur de vrais Cerfa) | ✅ disponible |
 | 📑 → 📝 **Passerelle** : « Convertir en Markdown » envoie le PDF tel qu'affiché (pages, annotations, formulaire) au module Convertir, en mémoire | ✅ disponible |
 
 ---
