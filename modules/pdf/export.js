@@ -44,8 +44,8 @@
     }
   }
 
-  // pages : [{ source, index, rotation, annots? }] → Uint8Array d'un nouveau PDF
-  async function construire(pages) {
+  // pages : [{ source, index, rotation, annots? }] → Uint8Array d'un nouveau PDF ; avis : reçoit les avertissements
+  async function construire(pages, avis = []) {
     const { PDFDocument, degrees } = await bibliotheque();
     const polices = new Map();
     const sortie = await PDFDocument.create();
@@ -53,11 +53,13 @@
     for (const src of new Set(pages.map(p => p.source))) {
       let lecteur;
       try {
-        // password '' : PDF chiffré par un mot de passe propriétaire seulement (cas des Cerfa)
-        lecteur = await PDFDocument.load(src.octets, { password: '', updateMetadata: false });
+        // password '' : PDF chiffré par un mot de passe propriétaire seulement (cas des Cerfa) ;
+        // preserveXFA : sinon le fork supprime le XFA en silence au chargement (remplir() avertit, lui)
+        lecteur = await PDFDocument.load(src.octets, { password: '', updateMetadata: false, preserveXFA: true });
       } catch (err) {
         throw new Error('« ' + src.nom + ' » ne peut pas être relu pour l\'export (' + err.message + ').');
       }
+      if (src.valeurs && src.valeurs.size) MPDS.pdfFormulaireExport.remplir(lecteur, src, avis);   // valeurs du formulaire, aplaties
       const miennes = pages.filter(p => p.source === src);
       const pgs = await sortie.copyPages(lecteur, miennes.map(p => p.index));   // un seul appel : ressources partagées
       miennes.forEach((p, i) => copies.set(p, pgs[i]));

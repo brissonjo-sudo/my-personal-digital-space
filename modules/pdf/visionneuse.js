@@ -29,6 +29,7 @@
   </div>
   <div class="pdf-barre pdf-barre-pages" id="pdf-barre-pages" role="toolbar" aria-label="Actions sur les pages"></div>
   <div class="pdf-barre pdf-barre-annot" id="pdf-barre-annot" role="toolbar" aria-label="Annotations"></div>
+  <div class="pdf-bandeau" id="pdf-bandeau-form" role="status" hidden></div>
   <div class="pdf-etat" id="pdf-etat" role="status" aria-live="polite"></div>
   <button type="button" class="pdf-vide" id="pdf-vide">
     <span class="pdf-vide-titre">Ouvrir un PDF</span>
@@ -42,7 +43,7 @@
 
   let racine = null, module = null, q = null;   // section du module, son conteneur, éléments par nom
   const modele = MPDS.pdfPages.creer();          // pages affichées : [{ source, index, rotation }]
-  let miniatures = null, actions = null, annot = null;   // annot : annotations (outils.js)
+  let miniatures = null, actions = null, annot = null, formulaire = null;   // annot : annotations (outils.js)
   let page = 1, courante = null, zoom = 1, ajuste = true;   // page : position (1-based) ; courante : sa page du modèle
   let tacheRendu = null, jetonRendu = 0, jetonOuverture = 0, tailleScene = 0;
 
@@ -101,7 +102,9 @@
       await tache.promise;
       if (mon !== jetonRendu) return;
       tacheRendu = null;
-      q.scene.replaceChildren(annot.poser(cv, entree, { view: p.view, rotation }, base));   // canvas + calque d'annotations
+      const feuille = annot.poser(cv, entree, { view: p.view, rotation }, base);   // canvas + calque d'annotations
+      q.scene.replaceChildren(feuille);
+      formulaire.poser(feuille, entree, p, base);   // couche de saisie du formulaire (asynchrone)
       tailleScene = q.scene.clientWidth;
     } catch (err) {
       if (err && err.name === 'RenderingCancelledException') return;
@@ -142,7 +145,7 @@
   function fermerDocument() {
     jetonRendu++;
     annulerRendu();
-    annot.vider(); miniatures.fermer(); q.scene.replaceChildren();
+    annot.vider(); formulaire.vider(); miniatures.fermer(); q.scene.replaceChildren();
     modele.vider();      // détruit les documents PDF.js
     courante = null;
   }
@@ -187,7 +190,7 @@
       return;
     }
     fermerDocument();                    // détruit l'ancien document
-    modele.ouvrir(source);
+    modele.ouvrir(source); formulaire.detecter(source);
     page = 1; courante = modele.liste[0]; zoom = 1; ajuste = true;
     q.nom.textContent = fichier.name;
     q.outils.hidden = false;
@@ -205,7 +208,7 @@
     try {
       const source = await lire(fichier);
       if (mon !== jetonOuverture) { source.doc.destroy().catch(() => {}); return; }   // autre document ouvert entre-temps
-      modele.ajouter(source);
+      modele.ajouter(source); formulaire.detecter(source);
       const n = source.doc.numPages;
       message(n + (n === 1 ? ' page ajoutée' : ' pages ajoutées') + ' depuis « ' + fichier.name + ' ».');
       rafraichir();
@@ -235,7 +238,7 @@
     racine.innerHTML = MARKUP;    // gabarit statique : aucune donnée de fichier
     module = racine.querySelector('.pdf-module');
     q = {};
-    for (const n of ['ouvrir', 'fichier', 'nom', 'nb', 'outils', 'prec', 'num', 'total', 'suiv', 'moins', 'zoom', 'plus', 'largeur', 'etat', 'vide', 'miniatures', 'scene', 'barre-pages', 'barre-annot']) {
+    for (const n of ['ouvrir', 'fichier', 'nom', 'nb', 'outils', 'prec', 'num', 'total', 'suiv', 'moins', 'zoom', 'plus', 'largeur', 'etat', 'vide', 'miniatures', 'scene', 'barre-pages', 'barre-annot', 'bandeau-form']) {
       q[n] = racine.querySelector('#pdf-' + n);
     }
     miniatures = MPDS.pdfMiniatures.creer({
@@ -248,6 +251,7 @@
       modele, barre: q['barre-pages'], courante: () => page, nom: () => q.nom.textContent,
       rafraichir, message, ajouter,
     });
+    formulaire = MPDS.pdfFormulaire.creer({ modele, bandeau: q['bandeau-form'], message, majBarre, rafraichir });
     annot = MPDS.pdfOutils.creer({ modele, barre: q['barre-annot'], aller: allerA, majBarre, message });
     actions.maj();
     const choisir = () => q.fichier.click();

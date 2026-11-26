@@ -60,8 +60,9 @@
       ctx.message('Préparation du PDF…');
       try {
         const nom = MPDS.pdfExport.nomSortie(ctx.nom(), suffixe);
-        MPDS.pdfExport.telecharger(await MPDS.pdfExport.construire(pages), nom);
-        ctx.message('« ' + nom + ' » enregistré.');
+        const avis = [];
+        MPDS.pdfExport.telecharger(await MPDS.pdfExport.construire(pages, avis), nom);
+        ctx.message('« ' + nom + ' » enregistré.' + avis.map(a => ' ' + a).join(''));
         return true;
       } catch (err) {
         ctx.message('L\'export a échoué : ' + (err.message || err), true);
