@@ -111,3 +111,21 @@
 .pdf-sig-apercu { display: block; max-width: 100%; max-height: 14rem; }
 .pdf-sig-session { max-height: 4rem; max-width: 12rem; }
 .pdf-sig-encres { display: inline-flex; gap: .75rem; }
+
+/* Formulaires : bandeau de détection et couche de saisie (vrais contrôles posés sur la page, qui reste blanche
+   quel que soit le thème : couleurs fixes). Actifs seulement avec l'outil Sélection (calque voisin). */
+.pdf-bandeau { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .4rem .75rem; font-size: .9rem; border-radius: var(--radius); background: var(--accent-fond); border: 1px solid var(--accent); }
+.pdf-bandeau[hidden] { display: none; }
+.pdf-module:not([data-etat="pret"]) .pdf-bandeau { display: none; }
+.pdf-formulaire { position: absolute; top: 0; left: 0; pointer-events: none; }
+.pdf-champ { position: absolute; margin: 0; padding: 0 .2em; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background: #e6efff; border: 1px solid #2563eb; border-radius: 2px; pointer-events: none; }
+.pdf-calque[data-outil="sel"] ~ .pdf-formulaire .pdf-champ { pointer-events: auto; }
+.pdf-champ:focus { outline: 3px solid var(--accent); outline-offset: 0; background: #fff; }
+.pdf-champ:is(textarea) { padding: .15em .3em; resize: none; line-height: 1.2; }
+.pdf-champ[aria-invalid="true"] { border: 2px solid var(--err); }
+.pdf-champ:disabled, .pdf-champ[readonly] { background: #e2e8f0; border-color: #94a3b8; color: #475569; }
+.pdf-champ-case, .pdf-champ-radio { appearance: none; -webkit-appearance: none; padding: 0; cursor: pointer; display: grid; place-content: center; }
+.pdf-champ-radio { border-radius: 50%; }
+.pdf-champ-case:checked, .pdf-champ-radio:checked { background: #2563eb; }
+.pdf-champ-case:checked::after { content: "✓"; color: #fff; font-weight: 700; line-height: 1; }
+.pdf-champ-radio:checked::after { content: ""; width: 40%; height: 40%; border-radius: 50%; background: #fff; }
