@@ -1,47 +1,101 @@
-/* MPDS : jetons de conception, base et coquille (rail + zone de contenu).
-   Les styles propres à un module vivent dans modules/<id>/<id>.css. */
+/* MPDS : identité « Registre » (sobre, institutionnelle), jetons, base et coquille (rail + contenu).
+   Les styles propres à un module vivent dans modules/<id>/<id>.css.
+   Polices auto-hébergées (commun/polices/, licence OFL) : la CSP n'autorise aucun domaine de polices. */
+@font-face {
+  font-family: 'Source Serif 4'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url(polices/source-serif-4-latin-600-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url(polices/source-sans-3-latin-400-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url(polices/source-sans-3-latin-600-normal.woff2) format('woff2');
+}
+
 :root {
-  --accent:   #2563eb;
-  --accent-h: #1d4ed8;
-  --ok:       #16a34a;
-  --warn:     #d97706;
-  --err:      #dc2626;
-  --bg:       #f8fafc;
-  --surface:  #ffffff;
-  --border:   #e2e8f0;
-  --text:     #1e293b;
-  --muted:    #64748b;
-  --radius:   10px;
-  --lien:       #2563eb;
-  --fond-2:     #f1f5f9;
-  --accent-fond:#eff6ff;
-  --ok-fond:    #f0fdf4;
-  --ok-bord:    #bbf7d0;
-  --note-fond:  #fefce8;
-  --note-bord:  #fde047;
-  --note-texte: #854d0e;
+  --police-titre: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --police-texte: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius:     4px;
+  /* Surfaces et encres */
+  --bg:         #ffffff;
+  --surface:    #ffffff;
+  --stage:      #eef1f6;   /* fond derrière la page du document */
+  --fond-2:     #eef1f6;
+  --text:       #16213a;
+  --muted:      #4e5a70;
+  --border:     #d5dbe5;   /* filets décoratifs */
+  --bord-ctrl:  #7d889e;   /* bordure des contrôles : 3:1 minimum */
+  /* Accent (boutons primaires, outil actif) */
+  --accent:      #1b2a4a;
+  --accent-ink:  #ffffff;
+  --accent-h:    #101a33;
+  --accent-fond: #e3e8f2;
+  --accent-fort: #1b2a4a;
+  --lien:        #1f4e9c;
+  --focus:       #1b2a4a;
+  /* États */
+  --ok:         #17653a;
+  --ok-fond:    #e8f4ec;
+  --ok-bord:    #9cc9b0;
+  --warn:       #8a4a00;
+  --err:        #b3261e;
+  --note-fond:  #fff4d6;
+  --note-bord:  #d9a93b;
+  --note-texte: #6b4300;
+  /* Rail : marine, rouge en touche pour le module actif */
+  --rail:            #1b2a4a;
+  --rail-ink:        #d9dfea;
+  --rail-faible:     #a4aec4;
+  --rail-actif:      #c2412d;
+  --rail-actif-ink:  #ffffff;
+  --rail-focus:      #ffffff;
+  /* Feuille de document : reste claire dans les deux thèmes (le PDF est blanc) */
+  --page:         #ffffff;
+  --page-texte:   #16213a;
+  --page-accent:  #1b2a4a;
+  --page-err:     #b3261e;   /* erreur posée sur la feuille (champ refusé) : même rouge foncé en sombre */
+  --champ-fond:   #e3e8f2;
+  --champ-off:    #e9ecf2;
+  --champ-off-bord: #7d889e;
+  --champ-off-texte: #4e5a70;
+  --damier:       #cbd2de;
+  --voile:        rgba(13, 20, 36, .55);
+  --ombre:        0 12px 40px rgba(13, 20, 36, .25);
+  --ombre-page:   0 1px 3px rgba(13, 20, 36, .18), 0 8px 24px rgba(13, 20, 36, .1);
   color-scheme: light dark;   /* cases à cocher, barres de défilement */
 }
-/* Thème sombre : suit le réglage du système */
+/* Thème sombre : suit le réglage du système, même famille marine */
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent-h:   #3b82f6;
-    --lien:       #93c5fd;
-    --ok:         #4ade80;
-    --warn:       #fbbf24;
-    --err:        #f87171;
-    --bg:         #0f172a;
-    --surface:    #1e293b;
-    --border:     #334155;
-    --text:       #e2e8f0;
-    --muted:      #94a3b8;
-    --fond-2:     #273449;
-    --accent-fond:#172554;
-    --ok-fond:    #052e16;
-    --ok-bord:    #166534;
-    --note-fond:  #422006;
-    --note-bord:  #a16207;
-    --note-texte: #fde68a;
+    --bg:         #0d1424;
+    --surface:    #151f36;
+    --stage:      #0a101d;
+    --fond-2:     #1d2944;
+    --text:       #e6ebf5;
+    --muted:      #a7b2c8;
+    --border:     #2b3857;
+    --bord-ctrl:  #6f7d9a;
+    --accent:      #d5e0f7;
+    --accent-ink:  #0d1424;
+    --accent-h:    #e8eefb;
+    --accent-fond: #25365a;
+    --accent-fort: #dce5f8;
+    --lien:        #9dbbf5;
+    --focus:       #a9c1f5;
+    --ok:         #5cd18a;
+    --ok-fond:    #0f2a1c;
+    --ok-bord:    #1f6b43;
+    --warn:       #f0b24a;
+    --err:        #ff8a80;
+    --note-fond:  #33260a;
+    --note-bord:  #8a6a1e;
+    --note-texte: #f5d58a;
+    --rail:       #080d19;
+    --rail-ink:   #c5cedf;
+    --rail-faible: #8e9ab3;
+    --voile:      rgba(0, 0, 0, .65);
   }
 }
 
@@ -50,33 +104,49 @@
    (.btn, .apercu-overlay, etc.) — sinon les éléments "cachés" restent visibles. */
 [hidden] { display: none !important; }
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--police-texte);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
 }
+button, input, select, textarea { font-family: inherit; }
+h1, h2 { font-family: var(--police-titre); font-weight: 600; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sr-seul {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.icone { flex: none; vertical-align: middle; }
 
-/* ---- Coquille : rail latéral + zone de contenu ---- */
+/* ---- Coquille : rail latéral marine + zone de contenu ---- */
 .mpds { display: flex; min-height: 100vh; }
 .rail {
-  flex: 0 0 auto; width: 5.5rem;
-  background: var(--surface); border-right: 1px solid var(--border);
-  padding: 1rem .5rem;
+  flex: 0 0 auto; width: 5.5rem; display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+  background: var(--rail); color: var(--rail-ink); padding: 1rem .5rem;
 }
-.rail-liste { list-style: none; display: flex; flex-direction: column; gap: .25rem; }
-.rail-lien {
-  display: flex; flex-direction: column; align-items: center; gap: .2rem;
-  padding: .5rem .25rem; border-radius: var(--radius);
-  color: var(--muted); text-decoration: none; font-size: .75rem;
+.rail :focus-visible { outline-color: var(--rail-focus); }
+.rail-marque {
+  width: 2.5rem; height: 2.5rem; margin-bottom: .9rem; display: grid; place-content: center;
+  background: var(--rail-actif); color: var(--rail-actif-ink); border-radius: var(--radius);
+  font: 600 1.1rem var(--police-titre);
 }
-.rail-lien:hover { background: var(--fond-2); color: var(--text); }
-.rail-lien[aria-current="page"] { background: var(--accent-fond); color: var(--accent); font-weight: 600; }
-.rail-icone { font-size: 1.4rem; line-height: 1; }
-.mpds-contenu { flex: 1; min-width: 0; padding: 1.5rem 1rem; }
+.rail-liste { list-style: none; display: flex; flex-direction: column; gap: .25rem; width: 100%; }
+.rail-lien, .rail-attente {
+  display: flex; flex-direction: column; align-items: center; gap: .25rem;
+  padding: .6rem .25rem; border-radius: var(--radius); font-size: .8rem; text-align: center;
+}
+.rail-lien { min-height: 3.5rem; color: var(--rail-ink); text-decoration: none; }
+.rail-lien:hover { background: rgba(255, 255, 255, .1); }
+.rail-lien[aria-current="page"] { background: var(--rail-actif); color: var(--rail-actif-ink); font-weight: 600; }
+.rail-sep { width: 2.5rem; height: 1px; background: var(--rail-ink); opacity: .3; margin: .5rem 0; }
+.rail-attente { color: var(--rail-faible); cursor: default; }
+.mpds-contenu { flex: 1; min-width: 0; }
 
 @media (max-width: 600px) {
   .mpds { flex-direction: column; }
-  .rail { width: auto; border-right: none; border-bottom: 1px solid var(--border); padding: .4rem .5rem; }
-  .rail-liste { flex-direction: row; }
-  .rail-lien { flex-direction: row; gap: .5rem; padding: .4rem .75rem; }
+  .rail { position: static; width: auto; height: auto; flex-direction: row; padding: .4rem .5rem; overflow: visible; }
+  .rail-marque { margin: 0 .5rem 0 0; width: 2.25rem; height: 2.25rem; }
+  .rail-liste { flex-direction: row; width: auto; }
+  .rail-lien { flex-direction: row; gap: .5rem; min-height: 2.75rem; padding: .4rem .75rem; }
+  .rail-sep, .rail-attente-liste { display: none; }
 }

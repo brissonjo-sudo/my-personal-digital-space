@@ -85,6 +85,19 @@ test('écriture de PDF disponible hors-ligne après un premier export', async ({
   await exporter();   // hors-ligne : la bibliothèque vient du cache
 });
 
+test('écriture de PDF hors-ligne dès la première visite (pdf-lib précachée)', async ({ page, context }) => {
+  await ouvrirApp(page);
+  await page.waitForFunction(() => navigator.serviceWorker.controller);
+  await page.waitForFunction(async c => (await (await caches.open(c)).keys()).some(r => r.url.endsWith('pdf-lib.min.js')), CACHE);
+  await context.setOffline(true);
+  await page.reload();
+  await page.waitForFunction(() => window.pdfjsLib && typeof MPDS !== 'undefined');
+  await page.evaluate(() => MPDS.envoyer(Fab.pdf('premier.pdf', [[{ t: 'Jamais exporte en ligne', x: 72, y: 700 }]]), 'pdf'));
+  await expect(page.locator('#pdf-canvas')).toBeVisible();
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click()]);
+  expect(fs.readFileSync(await dl.path()).subarray(0, 5).toString()).toBe('%PDF-');
+});
+
 test('manifeste installable', async ({ page }) => {
   await ouvrirApp(page);
   const manifeste = await page.evaluate(async () => {

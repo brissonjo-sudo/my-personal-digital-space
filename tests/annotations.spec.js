@@ -434,3 +434,18 @@ test('accessibilité : boutons d\'outil avec aria-pressed, libellés et infobull
   await expect(bouton(page, 'Couleur : Noir')).toHaveAttribute('aria-pressed', 'true');
   expect(await page.locator('.pdf-pastille').count()).toBe(6);
 });
+
+// Revue PR #7 : la pastille choisie doit rester visible (anneau séparé du disque, disque cerclé)
+test('pastille de couleur : disque cerclé, anneau de sélection séparé du disque', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Texte (T)');
+  const s = await page.locator('.pdf-pastille[aria-pressed="true"]').evaluate(p => {
+    const b = getComputedStyle(p), d = getComputedStyle(p.firstElementChild);
+    return { fond: b.backgroundColor, disque: d.backgroundColor, filet: d.boxShadow, ecart: parseFloat(b.paddingTop), anneau: b.borderTopColor };
+  });
+  expect(s.fond).toBe('rgba(0, 0, 0, 0)');      // le bouton lui-même ne se remplit pas
+  expect(s.disque).toBe('rgb(0, 0, 0)');         // noir, couleur par défaut du texte
+  expect(s.filet).not.toBe('none');
+  expect(s.ecart).toBeGreaterThan(2);            // l'anneau ne touche pas le disque
+  expect(s.anneau).not.toBe('rgba(0, 0, 0, 0)');
+});

@@ -269,3 +269,15 @@ test('changer de module conserve le document ouvert (monté une seule fois)', as
   await expect(page.locator('.pdf-mini')).toHaveCount(4);
   expect(await page.evaluate(() => MPDS.montages.get('pdf'))).toBe(1);
 });
+
+// Revue PR #1 : la tâche de chargement PDF.js (et son worker) doit être détruite quand l'ouverture échoue
+test('ouverture ratée : la tâche PDF.js et son worker sont libérés', async ({ page }) => {
+  await page.evaluate(() => {
+    const ouvrir = MPDS.pdfjs.ouvrir;
+    window.__taches = [];
+    MPDS.pdfjs.ouvrir = async ab => { const t = await ouvrir(ab); __taches.push(t); return t; };
+  });
+  await page.evaluate(() => MPDS.envoyer(new File(['%PDF-1.4\nrien\n%%EOF'], 'casse.pdf'), 'pdf'));
+  await expect(page.locator('#pdf-etat')).toContainText('corrompu');
+  await expect.poll(() => page.evaluate(() => __taches.length === 1 && __taches[0].destroyed)).toBe(true);
+});

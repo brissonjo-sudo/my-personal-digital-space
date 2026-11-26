@@ -1,4 +1,4 @@
-# CLAUDE.md — My Personal Digital Space (MPDS, nom provisoire)
+# CLAUDE.md — My Personal Digital Space (MPDS)
 
 ## Mémoire externe
 

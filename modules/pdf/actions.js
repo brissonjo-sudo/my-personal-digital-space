@@ -1,40 +1,41 @@
 // Module PDF — barre d'actions sur les pages : pivoter, supprimer, monter/descendre, ajouter un PDF,
 // extraire la sélection, enregistrer. Dépend de pages.js (modèle) et export.js. Publie
 // MPDS.pdfActions.creer(ctx).
-//   ctx = { modele, barre, courante(), nom(), rafraichir({ rendre }), message(texte, erreur), ajouter(fichier) }
+//   ctx = { modele, barre (panneau Pages), barreDoc (en-tête), modif (élément d'état), courante(), nom(), rafraichir({ rendre }), message(texte, erreur), ajouter(fichier) }
 (() => {
   'use strict';
-  const BOUTONS = [   // [clé, libellé, pictogramme décoratif, classe]
-    ['gauche', 'Pivoter à gauche', '↺'], ['droite', 'Pivoter à droite', '↻'],
-    ['monter', 'Monter la page', '▲'], ['descendre', 'Descendre la page', '▼'],
-    ['supprimer', 'Supprimer', '🗑'], ['ajouter', 'Ajouter un PDF', '＋'],
-    ['extraire', 'Extraire la sélection', ''], ['markdown', 'Convertir en Markdown', '📝'],
-    ['enregistrer', 'Enregistrer le PDF', '', 'pdf-btn-primaire'],
+  // [clé, libellé (= nom accessible), icône, zone : 'pages' (panneau, icône seule) ou 'doc' (en-tête, avec libellé), classe]
+  const BOUTONS = [
+    ['gauche', 'Pivoter à gauche', 'pivoter-gauche', 'pages'], ['droite', 'Pivoter à droite', 'pivoter-droite', 'pages'],
+    ['monter', 'Monter la page', 'monter', 'pages'], ['descendre', 'Descendre la page', 'descendre', 'pages'],
+    ['supprimer', 'Supprimer', 'supprimer', 'pages'], ['ajouter', 'Ajouter un PDF', 'ajouter', 'pages'],
+    ['extraire', 'Extraire la sélection', 'extraire', 'pages'],
+    ['markdown', 'Convertir en Markdown', 'markdown', 'doc'],
+    ['enregistrer', 'Enregistrer le PDF', 'enregistrer', 'doc', 'pdf-btn-primaire'],
   ];
 
   function creer(ctx) {
-    const { modele, barre } = ctx;
+    const { modele, barre, barreDoc, modif } = ctx;
     const b = {};
     let occupe = false;
-    for (const [cle, libelle, picto, classe] of BOUTONS) {
+    for (const [cle, libelle, icone, zone, classe] of BOUTONS) {
       const el = document.createElement('button');
       el.type = 'button'; el.className = 'pdf-btn ' + (classe || ''); el.id = 'pdf-act-' + cle;
-      if (picto) { const s = document.createElement('span'); s.setAttribute('aria-hidden', 'true'); s.textContent = picto + ' '; el.append(s); }
-      el.append(libelle);
-      b[cle] = el; barre.append(el);
+      el.append(MPDS.icones.creer(icone));
+      if (zone === 'pages') { el.classList.add('pdf-btn-icone'); el.setAttribute('aria-label', libelle); el.title = libelle; }
+      else el.append(' ' + libelle);
+      b[cle] = el; (zone === 'pages' ? barre : barreDoc).append(el);
     }
-    const modif = document.createElement('span');
-    modif.id = 'pdf-modif'; modif.className = 'pdf-modif'; modif.setAttribute('role', 'status');
     const fichier = document.createElement('input');
     fichier.type = 'file'; fichier.id = 'pdf-ajout'; fichier.accept = '.pdf,application/pdf'; fichier.hidden = true;
-    barre.append(modif, fichier);
+    barre.append(fichier);
 
     function maj() {
       const n = modele.liste.length, ouvert = n > 0, cur = ctx.courante();
       const toutes = ouvert && modele.cibles(cur).length >= n;
       for (const k of ['gauche', 'droite', 'ajouter', 'markdown', 'enregistrer']) b[k].disabled = !ouvert || occupe;
       b.supprimer.disabled = !ouvert || occupe || toutes;
-      b.supprimer.title = toutes ? 'Impossible de supprimer toutes les pages du document' : '';
+      b.supprimer.title = toutes ? 'Impossible de supprimer toutes les pages du document' : 'Supprimer';
       b.monter.disabled = !ouvert || occupe || cur <= 1;
       b.descendre.disabled = !ouvert || occupe || cur >= n;
       b.extraire.disabled = occupe || modele.selection.size === 0;
@@ -71,12 +72,16 @@
         return false;
       } finally { occupe = false; maj(); }
     }
-    b.enregistrer.addEventListener('click', async () => { if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(); maj(); } });
+    b.enregistrer.addEventListener('click', async () => {
+      const v = modele.version;   // une modification faite pendant l'export laisse l'indicateur allumé
+      if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(v); maj(); }
+    });
     b.extraire.addEventListener('click', () => exporter(modele.liste.filter(p => modele.selection.has(p)), 'extrait'));
     // Passerelle : le document tel qu'affiché (pages, annotations, formulaire) part au convertisseur,
     // en mémoire, sous le nom d'origine (le .md portera ce nom)
     b.markdown.addEventListener('click', () => exporter(modele.liste.slice(), '',
-      (octets, nom) => MPDS.envoyer(new File([octets], nom, { type: 'application/pdf' }), 'convertir')));
+      // le convertisseur choisit d'après l'extension : un PDF nommé « Scan_0001 » ou « x.txt » doit finir en .pdf
+      (octets, nom) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir')));
 
     return { maj };
   }

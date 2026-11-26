@@ -400,3 +400,35 @@ test('tampon : redimensionnable, annulable, gomme ; tampon et signature suivent 
   expect(await images(page, s)).toHaveLength(0);
   expect((await textes(page, s, 1)).map(x => x.str)).not.toContain('COPIE');
 });
+
+// Revue PR #4 : un clic sur la zone de dessin sortait le focus de la fenêtre (canvas non focalisable)
+test('fenêtre : après un clic dans la zone de dessin, Ctrl+Z, flèches et Échap restent à la fenêtre', async ({ page }) => {
+  await ouvrir(page, 2);
+  await page.keyboard.press('h');                                           // surligneur : une annotation derrière la fenêtre
+  const a = await ecran(page, 100, 300), b = await ecran(page, 300, 340);
+  await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 5 }); await page.mouse.up();
+  await expect(annots(page, 'surlig')).toHaveCount(1);
+  await page.keyboard.press('s');
+  await expect(dialogue(page)).toBeVisible();
+  await page.locator('.pdf-sig-canvas').click({ position: { x: 40, y: 40 } });   // un point tracé
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ArrowRight');
+  await expect(annots(page, 'surlig')).toHaveCount(1);                      // rien d'annulé derrière
+  await expect(page.locator('#pdf-num')).toHaveValue('1');                  // pas de changement de page
+  await page.keyboard.press('Escape');
+  await expect(dialogue(page)).toHaveCount(0);
+});
+
+test('image JPEG : en-tête piégé (FF 00) refusé, en-tête normal lu', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const d = a => MPDS.pdfDetourage.dimensions(new Uint8Array(a), 'jpeg');
+    const sof = [0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0xC8, 0x03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];   // 200 × 100
+    const app0 = [0xFF, 0xE0, 0x00, 0x10, ...Array(14).fill(0)];
+    return {
+      normal: d([0xFF, 0xD8, ...app0, ...sof]),
+      piege: d([0xFF, 0xD8, 0xFF, 0x00, 0x00, 0x14, ...Array(12).fill(0), ...sof]),
+      bruit: d([0xFF, 0xD8, 0x12, ...app0, ...sof]),
+    };
+  });
+  expect(r).toEqual({ normal: [200, 100], piege: null, bruit: null });
+});

@@ -1,14 +1,14 @@
 {
   "name": "My Personal Digital Space",
   "short_name": "MPDS",
-  "description": "Espace personnel d'outils 100 % locaux : conversion de documents en Markdown (PDF à venir), directement dans le navigateur.",
+  "description": "Espace personnel d'outils 100 % locaux : conversion en Markdown et édition de PDF (annoter, signer, tamponner, pages, formulaires), directement dans le navigateur.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "theme_color": "#1b2a4a",
   "icons": [
     { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

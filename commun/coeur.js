@@ -2,7 +2,7 @@
 // Cœur de MPDS : registre de modules, routeur par hash (#/<id>) et passerelle
 // de fichiers entre modules. Script classique (compatible file://), chargé avant
 // les modules. Un module s'enregistre avec :
-//   { id, titre, icone, monter(el), demonter(el), surFichier(fichier) }
+//   { id, titre, icone (nom d'une icône de commun/icones.js), monter(el), demonter(el), surFichier(fichier) }
 // monter() est appelé UNE fois, au premier affichage ; passer à un autre module
 // masque simplement le conteneur (l'état du module est conservé).
 const MPDS = (() => {
@@ -30,11 +30,7 @@ const MPDS = (() => {
     a.className = 'rail-lien';
     a.href = '#/' + def.id;
     a.dataset.module = def.id;
-    const icone = document.createElement('span');
-    icone.className = 'rail-icone';
-    icone.setAttribute('aria-hidden', 'true');
-    icone.textContent = def.icone || '';
-    a.append(icone, document.createTextNode(def.titre || def.id));
+    a.append(MPDS.icones.creer(def.icone, 22), document.createTextNode(def.titre || def.id));
     li.append(a);
     rail().append(li);
   }

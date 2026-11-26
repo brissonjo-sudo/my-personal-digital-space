@@ -9,7 +9,8 @@
 
   function creer() {
     const liste = [], sources = [], selection = new Set();   // selection : pages cochées (par identité)
-    let modifie = false;
+    let modifie = false, version = 0;   // version : incrémentée à chaque modification
+    const toucher = () => { modifie = true; version++; };
 
     const normaliser = r => ((r % 360) + 360) % 360;
     const vider = () => {
@@ -19,34 +20,36 @@
     const ajouter = source => {
       sources.push(source);
       for (let i = 0; i < source.doc.numPages; i++) liste.push({ source, index: i, rotation: 0, annots: [] });
-      modifie = true;
+      toucher();
     };
 
     return {
       liste, sources, selection,
       get modifie() { return modifie; },
-      enregistre() { modifie = false; },
-      marquerModifie() { modifie = true; },
+      get version() { return version; },
+      // Export réussi de l'état `v` : l'indicateur ne s'éteint que si rien n'a changé depuis
+      enregistre(v) { if (v === version) modifie = false; },
+      marquerModifie: toucher,
       vider,
       // Nouveau document principal : remplace tout (les anciens documents PDF.js sont détruits)
       ouvrir(source) { vider(); ajouter(source); modifie = false; },
       ajouter,
       // Pages visées par une action : la sélection si elle existe, sinon la page courante (1-based)
       cibles: courante => selection.size ? liste.filter(p => selection.has(p)) : liste.slice(courante - 1, courante),
-      pivoter(pages, delta) { for (const p of pages) p.rotation = normaliser(p.rotation + delta); if (pages.length) modifie = true; },
+      pivoter(pages, delta) { for (const p of pages) p.rotation = normaliser(p.rotation + delta); if (pages.length) toucher(); },
       supprimer(pages) {
         const retirees = new Set(pages);
         if (!retirees.size) return;
         if (liste.every(p => retirees.has(p))) throw new Error('Impossible de supprimer la dernière page du document.');
         for (let i = liste.length - 1; i >= 0; i--) if (retirees.has(liste[i])) { selection.delete(liste[i]); liste.splice(i, 1); }
-        modifie = true;
+        toucher();
       },
       // Place la page à la position `vers` (0-based, bornée)
       deplacer(page, vers) {
         const de = liste.indexOf(page), a = Math.min(liste.length - 1, Math.max(0, vers));
         if (de < 0 || de === a) return;
         liste.splice(de, 1); liste.splice(a, 0, page);
-        modifie = true;
+        toucher();
       },
       cocher(page, oui) { if (oui) selection.add(page); else selection.delete(page); },
     };

@@ -9,7 +9,7 @@
  */
 'use strict';
 
-const VERSION = 'mpds-v6';                    // ← nom du cache ; bump si libs CDN changent
+const VERSION = 'mpds-v8';                    // ← nom du cache ; bump si libs CDN changent
 const PREFIXE = 'mpds-';                      // seuls les caches de ce préfixe nous appartiennent
 const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 // SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
@@ -23,6 +23,10 @@ const PRECACHE = [
   './icone.svg',
   './commun/style.css',
   './commun/coeur.js',
+  './commun/icones.js',
+  './commun/polices/source-serif-4-latin-600-normal.woff2',
+  './commun/polices/source-sans-3-latin-400-normal.woff2',
+  './commun/polices/source-sans-3-latin-600-normal.woff2',
   './commun/pdfjs.js',
   './modules/convertir/convertir.css',
   './modules/convertir/partage.js',
@@ -42,6 +46,7 @@ const PRECACHE = [
   './modules/pdf/outils.js',
   './modules/pdf/formulaire.js',
   './modules/pdf/formulaire-export.js',
+  './modules/pdf/gabarit.js',
   './modules/pdf/visionneuse.js',
   `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
   `${CDN}/turndown/7.1.2/turndown.min.js`,
@@ -51,10 +56,13 @@ const PRECACHE = [
   `${CDN}/PapaParse/5.4.1/papaparse.min.js`,
   `${CDN}/jszip/3.10.1/jszip.min.js`,
 ];
+// pdf-lib : précachée car « Enregistrer » est l'action centrale du module PDF (hors ligne dès la 1re
+// visite), mais à part : jsDelivr bloqué (proxy) ne doit pas faire échouer tout le précache
+const PRECACHE_OPTIONNEL = ['https://cdn.jsdelivr.net/npm/@cantoo/pdf-lib@2.11.1/dist/pdf-lib.min.js'];
 
-const LOCAUX = new Set(PRECACHE.filter(u => /^\.\/.+\.(js|css)$/.test(u)).map(u => new URL(u, self.location).href));
+const LOCAUX = new Set(PRECACHE.filter(u => /^\.\/.+\.(js|css|woff2)$/.test(u)).map(u => new URL(u, self.location).href));
 
-// OCR et écriture de PDF (pdf-lib, ≈ 600 Ko) : mis en cache à la volée (voir le gestionnaire
+// OCR (et pdf-lib, déjà précachée : filet de sécurité) : mis en cache à la volée (voir le gestionnaire
 // fetch) au premier usage, pas au préchargement
 const NPM = 'https://cdn.jsdelivr.net/npm';
 const OCR_PREFIXES = [`${NPM}/tesseract.js@`, `${NPM}/tesseract.js-core@`, `${NPM}/@tesseract.js-data/`, `${NPM}/@cantoo/pdf-lib@`];
@@ -68,6 +76,7 @@ self.addEventListener('install', event => {
     await cache.addAll(PRECACHE.map(u =>
       new Request(u, { mode: u.startsWith('http') ? 'cors' : 'same-origin' })
     ));
+    await Promise.all(PRECACHE_OPTIONNEL.map(u => cache.add(new Request(u, { mode: 'cors' })).catch(() => {})));
     await self.skipWaiting();
   })());
 });

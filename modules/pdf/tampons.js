@@ -31,7 +31,7 @@
     if (!m) throw new Error('Tampon inconnu.');
     const d = String(date || '').trim();
     if (m.date && !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) throw new Error('Date attendue au format JJ/MM/AAAA.');
-    const texte = MPDS.pdfTexte.verifier(m.nom + (m.date ? ' ' + d : '')).toLocaleUpperCase('fr-FR');
+    const texte = MPDS.pdfTexte.verifier((m.nom + (m.date ? ' ' + d : '')).toLocaleUpperCase('fr-FR'));   // vérifié APRÈS la capitalisation (« µ » → « Μ » grec)
     return { type: 'tampon', texte, couleur: m.couleur, taille, w: mesure(texte, taille) + taille * 1.2, h: taille * 1.5, incl: 8 };
   }
 

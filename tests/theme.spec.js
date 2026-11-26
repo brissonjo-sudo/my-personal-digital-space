@@ -34,7 +34,7 @@ test('système en mode sombre : fond sombre, textes lisibles', async ({ page }) 
   await page.emulateMedia({ colorScheme: 'dark' });
   await ouvrirApp(page);
   const c = await couleurs(page);
-  expect(c.fond).toBe('rgb(15, 23, 42)');
+  expect(c.fond).toBe('rgb(13, 20, 36)');
   for (const [texte, fond] of [[c.texte, c.fond], [c.nom, c.surface], [c.msg, c.surface], [c.badgeTexte, c.badgeFond]]) {
     expect(contraste(texte, fond), `${texte} sur ${fond}`).toBeGreaterThanOrEqual(4.5);
   }
@@ -44,7 +44,7 @@ test('système en mode clair : couleurs d\'origine', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await ouvrirApp(page);
   const c = await couleurs(page);
-  expect(c.fond).toBe('rgb(248, 250, 252)');
-  expect(c.nom).toBe('rgb(37, 99, 235)');
-  expect(c.badgeFond).toBe('rgb(240, 253, 244)');
+  expect(c.fond).toBe('rgb(255, 255, 255)');
+  expect(c.nom).toBe('rgb(31, 78, 156)');
+  expect(c.badgeFond).toBe('rgb(227, 232, 242)');
 });

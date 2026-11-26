@@ -4,7 +4,7 @@
 
 Une boîte à outils numérique personnelle — **100 % locale, sans installation, sans serveur.** Vos fichiers ne quittent jamais votre appareil.
 
-> 🚧 **En développement** (nom provisoire). Issu de [convert-to-markdown](https://github.com/brissonjo-sudo/convert-to-markdown), qui reste disponible tel quel.
+> 🚧 **En développement.** « My Personal Digital Space » (MPDS) est le nom définitif. Issu de [convert-to-markdown](https://github.com/brissonjo-sudo/convert-to-markdown), qui reste disponible tel quel.
 
 | Module | État |
 | --- | --- |
@@ -13,7 +13,7 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
 | 📑 **PDF** : annoter (surligneur, texte, dessin, gomme, annuler/rétablir), figé dans la page à l'export | ✅ disponible |
 | 📑 **PDF** : signer (dessin ou image au fond retiré, jamais stockée) et tamponner (10 tampons), figés dans la page à l'export | ✅ disponible |
-| 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export, y compris les Cerfa chiffrés | ✅ disponible |
+| 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export ; PDF chiffrés sans mot de passe d'ouverture pris en charge (testé sur fichiers générés, pas encore sur de vrais Cerfa) | ✅ disponible |
 | 📑 → 📝 **Passerelle** : « Convertir en Markdown » envoie le PDF tel qu'affiché (pages, annotations, formulaire) au module Convertir, en mémoire | ✅ disponible |
 
 ---
@@ -119,8 +119,8 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
-  - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, styles communs
-  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `visionneuse.js`, `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
+  - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, jetons et styles communs (`style.css`, identité « Registre » : marine sobre, thème sombre automatique), icônes SVG au trait (`icones.js`, aucune bibliothèque) et `polices/` (voir ci-dessous)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `gabarit.js` (balisage de l'écran), `visionneuse.js`, `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -130,7 +130,8 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Hors ligne (PWA)** : le service worker met en cache les bibliothèques à la première visite, et les fichiers de l'OCR à son premier usage
 - **Bibliothèques tierces** : chargées depuis [cdnjs.cloudflare.com](https://cdnjs.com), [cdn.sheetjs.com](https://cdn.sheetjs.com) pour SheetJS (plus publié sur cdnjs depuis la 0.18.5, vulnérable) et [jsDelivr](https://www.jsdelivr.com) pour l'OCR et l'écriture de PDF, versions épinglées, empreintes SRI vérifiées
 - **Écriture de PDF** : [`@cantoo/pdf-lib`](https://github.com/cantoo-scribe/pdf-lib) 2.11.1 (fork maintenu de pdf-lib, qui n'est plus publié depuis 2021 et ne sait pas ouvrir un PDF chiffré, comme beaucoup de Cerfa). Chargée **à la demande** au premier enregistrement (≈ 600 Ko) : `MPDS.chargerScript` télécharge le fichier, vérifie son empreinte SRI, puis l'exécute depuis une URL `blob:`. Elle n'a donc pas de balise dans la page et la CSP est inchangée
-- **Accessibilité** : navigation clavier complète, focus piégé dans la fenêtre d'aperçu, attributs ARIA, journal annoncé aux lecteurs d'écran (`aria-live`)
+- **Polices auto-hébergées** : Source Serif 4 (titres) et Source Sans 3 (texte), sous-ensemble latin en woff2 dans `commun/polices/`, installées depuis les paquets npm `@fontsource/*` 5.3.1. Aucune requête vers un service de polices (la CSP n'autorise que `font-src 'self'`). Licence SIL Open Font License 1.1 : `commun/polices/LICENCE-OFL.txt`
+- **Accessibilité** : navigation clavier complète, contrastes vérifiés par un test (4,5:1 pour le texte, 3:1 pour les contrôles et le focus, thèmes clair et sombre), cibles d'au moins 36 px, focus visible, focus piégé dans la fenêtre d'aperçu, attributs ARIA, journal annoncé aux lecteurs d'écran (`aria-live`)
 - **Compatibilité** : Chrome, Edge et Firefox récents ; tests automatisés sous Chromium
 
 ### Sécurité
@@ -143,6 +144,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - ✅ HTML malveillant neutralisé (DOMParser inerte, `<script>`/`<style>` retirés)
 - ✅ Liens exécutables (`javascript:`, `vbscript:`, `data:`) retirés du Markdown produit : un clic dans votre éditeur ne peut rien exécuter
 - ✅ Pièces jointes des courriels : noms rendus sûrs (un nom piégé « ../ » ne peut pas sortir de son dossier à l'extraction du ZIP) ; images distantes non recopiées
+- ✅ Polices servies par l'application elle-même : aucun domaine de polices externe, vérifié par un test
 - ✅ Validation par tests automatisés en navigateur (Playwright), à chaque modification
 
 ### Tests

@@ -5,7 +5,9 @@
 // Renvoie { poser, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
 (() => {
   'use strict';
-  const OUTILS = [['sel', 'Sélection', 'V', '↖'], ['surlig', 'Surligneur', 'H', '▬'], ['texte', 'Texte', 'T', 'T'], ['dessin', 'Dessin', 'D', '✎'], ['signature', 'Signature', 'S', '✍'], ['tampon', 'Tampon', 'P', '▣'], ['gomme', 'Gomme', 'E', '⌫']];
+  // [id, nom, touche, icône, libellé visible] : groupe 1 icônes seules, groupe 2 (signature, tampon) avec libellé
+  const OUTILS = [['sel', 'Sélection', 'V', 'selection'], ['surlig', 'Surligneur', 'H', 'surligneur'], ['texte', 'Texte', 'T', 'texte'], ['dessin', 'Dessin', 'D', 'dessin'], ['gomme', 'Gomme', 'E', 'gomme'],
+    ['signature', 'Signature', 'S', 'signature', true], ['tampon', 'Tampon', 'P', 'tampon', true]];
   const COULEURS = [['Noir', '#000000'], ['Rouge', '#dc2626'], ['Bleu', '#2563eb'], ['Vert', '#16a34a'], ['Orange', '#f97316'], ['Jaune', '#facc15']];
   const POLICES = [['Helvetica', 'Helvetica'], ['TimesRoman', 'Times'], ['Courier', 'Courier']];
   const PAR_OUTIL = { surlig: '#facc15', texte: '#000000', dessin: '#dc2626' };   // couleur initiale de chaque outil
@@ -19,16 +21,15 @@
     const boutons = {}, pastilles = {}, reglages = {}, memoire = { ...PAR_OUTIL };
     let annuler = null, retablir = null;
 
-    const bouton = (id, libelle, picto, titre) => {
+    const bouton = (id, libelle, icone, titre) => {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'pdf-btn'; b.id = 'pdf-' + id;
+      b.type = 'button'; b.className = 'pdf-btn' + (libelle ? '' : ' pdf-btn-icone'); b.id = 'pdf-' + id;
       b.setAttribute('aria-label', titre); b.title = titre;
-      const s = document.createElement('span');
-      s.setAttribute('aria-hidden', 'true'); s.textContent = picto;
-      b.append(s, libelle ? ' ' + libelle : '');
+      b.append(MPDS.icones.creer(icone), libelle ? ' ' + libelle : '');
       barre.append(b);
       return b;
     };
+    const separateur = () => barre.append(Object.assign(document.createElement('span'), { className: 'pdf-sep' }));
     const champ = (id, libelle, input, sortie) => {
       const l = document.createElement('label');
       l.className = 'pdf-reglage'; l.id = 'pdf-reglage-' + id;
@@ -80,15 +81,18 @@
     }
 
     // ---- Construction de la barre ----
-    for (const [id, nom, touche, picto] of OUTILS) {
-      boutons[id] = bouton('outil-' + id, nom, picto, `${nom} (${touche})`);
+    OUTILS.forEach(([id, nom, touche, icone, libelle], k) => {
+      if (id === 'signature') separateur();
+      boutons[id] = bouton('outil-' + id, libelle && nom, icone, `${nom} (${touche})`);
       boutons[id].addEventListener('click', () => lancer(id));
-    }
+    });
+    separateur();
     const palette = document.createElement('span');
     palette.className = 'pdf-palette'; palette.setAttribute('role', 'group'); palette.setAttribute('aria-label', 'Couleur');
     for (const [nom, hex] of COULEURS) {
       const p = document.createElement('button');
-      p.type = 'button'; p.className = 'pdf-pastille'; p.style.background = hex;
+      p.type = 'button'; p.className = 'pdf-pastille';
+      const disque = document.createElement('span'); disque.style.backgroundColor = hex; p.append(disque);   // disque cerclé : visible sur tout fond
       p.setAttribute('aria-label', 'Couleur : ' + nom); p.title = nom;
       p.addEventListener('click', () => { r.couleur = hex; choisirOutil(r.outil); });
       pastilles[hex] = p; palette.append(p);
@@ -113,9 +117,9 @@
     tampon.addEventListener('change', () => { r.tampon = tampon.value; choisirOutil('tampon'); });
     const date = champ('date', 'Date', Object.assign(document.createElement('input'), { type: 'text', maxLength: 10, size: 10, value: r.date }));
     date.addEventListener('input', () => { r.date = date.value; });
-    barre.append(Object.assign(document.createElement('span'), { className: 'pdf-sep' }));
-    annuler = bouton('annuler', 'Annuler', '↶', 'Annuler (Ctrl+Z)');
-    retablir = bouton('retablir', 'Rétablir', '↷', 'Rétablir (Ctrl+Y)');
+    annuler = bouton('annuler', '', 'annuler', 'Annuler (Ctrl+Z)');
+    retablir = bouton('retablir', '', 'retablir', 'Rétablir (Ctrl+Y)');
+    annuler.classList.add('pdf-ressort');   // Annuler et Rétablir poussés à droite
     annuler.addEventListener('click', () => annotations.annuler());
     retablir.addEventListener('click', () => annotations.retablir());
     choisirOutil('sel'); maj();
