@@ -121,13 +121,17 @@
 
     // ---- Gestes ----
     function debut(e) {
-      if (e.button !== 0 || editeur || geste) return;   // saisie ouverte : sa perte de focus valide ; un 2e pointeur (paume) est ignoré
+      if (e.button !== 0 || editeur) return;   // saisie ouverte : sa perte de focus valide
+      if (geste) {   // 2e pointeur : ignoré (paume), sauf un stylet arrivé après un contact au doigt (la paume posée d'abord)
+        if (e.pointerType !== 'pen' || geste.stylet) return;
+        abandonner();
+      }
       const p = pt(e), o = r.outil, g = e.target.closest('[data-id]');
       const a = g ? entree.annots.find(x => x.id === +g.dataset.id) : null;
       if (o === 'sel' && selection && e.target.classList.contains('pdf-poignee')) {   // poignée d'angle : agrandir / réduire
         const b = e.target.getBoundingClientRect(), h = pt({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
         const c = ve(selection.x, selection.y);
-        geste = { type: 'redim', a: selection, depart: p, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
+        geste = { type: 'redim', id: e.pointerId, stylet: e.pointerType === 'pen', a: selection, depart: p, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
         svg.setPointerCapture(e.pointerId);
         return;
       }
@@ -137,11 +141,15 @@
         redessiner();
         geste = a ? { type: 'dep', a, depart: p, avant: geom(a), bouge: false } : null;
       } else geste = { type: o, depart: p, fin: p, pts: [p] };
-      if (geste) svg.setPointerCapture(e.pointerId);
+      if (geste) { Object.assign(geste, { id: e.pointerId, stylet: e.pointerType === 'pen' }); svg.setPointerCapture(e.pointerId); }
     }
 
+    // Le geste appartient au pointeur qui l'a commencé : les mouvements, le lever ou l'annulation d'un
+    // autre pointeur (paume posée pendant le tracé) n'y touchent pas
+    const autre = e => !geste || (e && e.pointerId !== undefined && e.pointerId !== geste.id);
+
     function bouge(e) {
-      if (!geste) return;
+      if (autre(e)) return;
       const p = pt(e), d = geste.depart;
       // Déplacer ou redimensionner : rien sous 2 px d'écran (un clic qui tremble n'est pas un déplacement)
       if ((geste.type === 'dep' || geste.type === 'redim') && !geste.bouge && Math.hypot(p.x - d.x, p.y - d.y) * p.k <= 2) return;
@@ -176,10 +184,10 @@
       ctx.annotations.ajouter(entree, { ...o, x: c.x, y: c.y, angle: ((info.rotation % 360) + 360) % 360 });
     }
 
-    function fin() {
+    function fin(e) {
+      if (autre(e)) return;
       const g = geste;
       geste = null;
-      if (!g) return;
       if (g.el) g.el.remove();
       if (g.type === 'dep' || g.type === 'redim') { if (g.bouge) ctx.annotations.deplacer(entree, g.a, g.avant, geom(g.a)); }
       else if (REDIM.includes(g.type)) poser1(g.depart);
@@ -194,10 +202,10 @@
 
     // Geste interrompu (pointercancel, capture perdue, page remplacée) : un déplacement ou un
     // redimensionnement en cours est défait, rien n'est enregistré
-    function abandonner() {
+    function abandonner(e) {
+      if (autre(e)) return;
       const g = geste;
       geste = null;
-      if (!g) return;
       if (g.el) g.el.remove();
       if ((g.type === 'dep' || g.type === 'redim') && g.bouge) { Object.assign(g.a, g.avant); redessiner(); }
     }

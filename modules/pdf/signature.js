@@ -46,20 +46,25 @@
     const g = cv.getContext('2d');
     Object.assign(g, { lineWidth: 4, lineCap: 'round', lineJoin: 'round', strokeStyle: ENCRES[0][1] });
     const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * cv.width / b.width, (e.clientY - b.top) * cv.height / b.height]; };
-    let dernier = null;
+    // doigt : pointeur qui trace ; un second (paume) est ignoré, sauf un stylet arrivé après un contact au
+    // doigt : il l'emporte et le trait de la paume est effacé (image d'avant son appui)
+    let dernier = null, doigt = null, stylet = false, image0 = null;
     cv.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
+      if (dernier) { if (e.pointerType !== 'pen' || stylet) return; g.putImageData(image0, 0, 0); }
+      else image0 = g.getImageData(0, 0, cv.width, cv.height);
+      doigt = e.pointerId; stylet = e.pointerType === 'pen';
       cv.setPointerCapture(e.pointerId);
       dernier = pos(e); trace = true; dire('');
       g.beginPath(); g.moveTo(...dernier); g.lineTo(dernier[0] + 0.1, dernier[1]); g.stroke();   // un simple clic laisse un point
     });
     cv.addEventListener('pointermove', e => {
-      if (!dernier) return;
+      if (!dernier || e.pointerId !== doigt) return;
       const p = pos(e);
       g.beginPath(); g.moveTo(...dernier); g.lineTo(...p); g.stroke();
       dernier = p;
     });
-    for (const t of ['pointerup', 'pointercancel']) cv.addEventListener(t, () => { dernier = null; });
+    for (const t of ['pointerup', 'pointercancel']) cv.addEventListener(t, e => { if (e.pointerId === doigt) dernier = null; });
     const encres = el('div', { className: 'pdf-sig-encres', role: 'radiogroup' });
     encres.setAttribute('aria-label', 'Encre');
     ENCRES.forEach(([nom, c], i) => {
