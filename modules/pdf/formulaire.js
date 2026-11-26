@@ -115,6 +115,16 @@
       return c;
     }
 
+    // Champ à cases (SIRET, date…) : une lettre centrée par case, comme dans le PDF exporté ; chasse fixe,
+    // 1ch ≈ 0,6 em. L'espacement suit aussi la dernière lettre : la boîte est élargie de cette demi-marge
+    // (sinon le champ plein défile et décale les lettres) ; cadre et fond restent sur les cases (--cases).
+    function cases(c, w, h, n) {
+      const cel = w / n, marge = 'calc((' + cel + 'px - 1ch) / 2)';
+      c.classList.add('pdf-champ-cases');
+      c.style.setProperty('--cases', w + 'px');
+      Object.assign(c.style, { fontSize: Math.min(h * 0.65, cel * 1.3) + 'px', letterSpacing: 'calc(' + cel + 'px - 1ch)', paddingLeft: marge, width: 'calc(' + w + 'px + ' + marge + ')' });
+    }
+
     // Ordre de lecture par rangées : un champ qui recouvre la bande de la rangée sur plus de la moitié de
     // la plus petite des deux hauteurs la rejoint (champs de hauteurs différentes sur une même ligne). La
     // bande est celle du champ le moins haut de la rangée : un grand champ ne happe pas la ligne suivante.
@@ -157,6 +167,8 @@
         c.setAttribute('aria-label', (a.alternativeText || nom) + (etatBouton ? ' : ' + etatBouton : ''));
         if (g === 'radio') c.name = 'pdf-' + nom;
         Object.assign(c.style, { left: x * k + 'px', top: y * k + 'px', width: w * k + 'px', height: h * k + 'px' });
+        // page pivotée : à 90/270° le champ est vertical à l'écran, à 180° ses cases se lisent de droite à gauche
+        if (g === 'texte' && a.comb && info.rotation % 360 === 0) cases(c, w * k, h * k, a.maxLen);
         const lire = { texte: () => c.value, case: () => (c.checked ? a.exportValue : 'Off'), radio: () => a.buttonValue, liste: () => [...c.selectedOptions].map(o => o.value).filter(Boolean) }[g];
         c.addEventListener(g === 'texte' ? 'input' : 'change', () => {
           const v = lire();

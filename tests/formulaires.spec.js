@@ -351,3 +351,35 @@ test('champ impossible à figer : signalé s\'il montrait un contenu ; échecs s
   await expect(page.locator('#pdf-etat')).toContainText('Champ « cible » de « etats.pdf » non figé : retiré du fichier exporté.');
   await expect(page.locator('#pdf-etat')).not.toContainText('« signature »');
 });
+
+// Essai sur de vrais Cerfa : un champ à cases (SIRET, date…) s'affichait d'un bloc à l'écran, lettre par case à l'export
+test('champ à cases : une lettre par case à l\'écran, sans défilement une fois plein ; champ ordinaire inchangé', async ({ page }) => {
+  const doc = await P.PDFDocument.create(), p1 = doc.addPage([595, 842]), form = doc.getForm();
+  const siret = form.createTextField('siret'); siret.setMaxLength(14); siret.enableCombing();
+  siret.addToPage(p1, { x: 72, y: 700, width: 280, height: 20 });
+  form.createTextField('nom').addToPage(p1, { x: 72, y: 650, width: 280, height: 20 });
+  await ouvrir(page, Buffer.from(await doc.save()), 'cases.pdf');
+  await expect(champ(page, 'nom')).not.toHaveClass(/pdf-champ-cases/);
+  const c = champ(page, 'siret');
+  await expect(c).toHaveClass(/pdf-champ-cases/);
+  await c.click(); await c.fill('12345678901234'); await page.keyboard.press('End');
+  const m = await c.evaluate(e => {
+    const s = getComputedStyle(e), r = document.createElement('span');
+    r.style.font = s.font; r.textContent = '0'; document.body.append(r);
+    const ch = r.getBoundingClientRect().width; r.remove();
+    const cases = parseFloat(e.style.getPropertyValue('--cases'));
+    return { cel: cases / e.maxLength, ch, ls: parseFloat(s.letterSpacing), pg: parseFloat(s.paddingLeft), dl: e.scrollLeft, deborde: e.scrollWidth - e.clientWidth, fond: s.backgroundColor };
+  });
+  expect(m.fond).toBe('rgba(0, 0, 0, 0)');          // les cases dessinées par le PDF restent visibles
+  expect(m.ch + m.ls).toBeCloseTo(m.cel, 0);        // pas d'une lettre = largeur d'une case
+  expect(m.pg * 2).toBeCloseTo(m.ls, 0);           // lettre centrée dans sa case
+  expect(m.dl).toBe(0);                            // plein, curseur au bout : rien ne défile
+  expect(m.deborde).toBeLessThanOrEqual(0);
+  const octets = await exporter(page);
+  expect((await textes(page, octets))[0].replace(/\s/g, '')).toContain('12345678901234');
+  // page pivotée à 90° : le champ est vertical à l'écran, affichage ordinaire (texte lisible)
+  await bouton(page, 'Pivoter à droite').click();
+  await expect(champ(page, 'siret')).not.toHaveClass(/pdf-champ-cases/);
+  await expect(champ(page, 'siret')).toHaveValue('12345678901234');
+  expect(parseFloat(await champ(page, 'siret').evaluate(e => getComputedStyle(e).fontSize))).toBeGreaterThan(8);
+});
