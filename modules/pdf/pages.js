@@ -1,7 +1,8 @@
 // Module PDF — modèle des pages affichées. Aucune écriture de PDF ici : la liste décrit ce que
 // l'on voit, et l'export (export.js) reconstruit un PDF neuf à partir d'elle.
 //   source : { nom, doc (document PDF.js), octets (ArrayBuffer d'origine) }
-//   page   : { source, index (0-based dans sa source), rotation (pivotement ajouté, 0/90/180/270) }
+//   page   : { source, index (0-based dans sa source), rotation (pivotement ajouté, 0/90/180/270),
+//              annots (annotations figées à l'export, en points PDF : voir annotations.js) }
 // Publie MPDS.pdfPages.creer().
 (() => {
   'use strict';
@@ -17,7 +18,7 @@
     };
     const ajouter = source => {
       sources.push(source);
-      for (let i = 0; i < source.doc.numPages; i++) liste.push({ source, index: i, rotation: 0 });
+      for (let i = 0; i < source.doc.numPages; i++) liste.push({ source, index: i, rotation: 0, annots: [] });
       modifie = true;
     };
 
@@ -25,6 +26,7 @@
       liste, sources, selection,
       get modifie() { return modifie; },
       enregistre() { modifie = false; },
+      marquerModifie() { modifie = true; },
       vider,
       // Nouveau document principal : remplace tout (les anciens documents PDF.js sont détruits)
       ouvrir(source) { vider(); ajouter(source); modifie = false; },

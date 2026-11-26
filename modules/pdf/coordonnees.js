@@ -1,5 +1,5 @@
-// Module PDF — conversion de coordonnées : point de l'affichage → point PDF. Fonction pure,
-// prévue pour les annotations (étape 4). Publie MPDS.pdfCoord.
+// Module PDF — conversion de coordonnées : point de l'affichage → point PDF (versPdf) et
+// inverse (dePdf). Fonctions pures, utilisées par les annotations. Publie MPDS.pdfCoord.
 (() => {
   'use strict';
 
@@ -20,8 +20,20 @@
     }
   }
 
+  // Inverse de versPdf : point de l'espace utilisateur PDF → point du viewport à l'échelle 1
+  function dePdf(pageInfo, X, Y) {
+    const [x0, y0, x1, y1] = pageInfo.view;
+    switch ((((pageInfo.rotation || 0) % 360) + 360) % 360) {
+      case 0:   return { x: X - x0, y: y1 - Y };
+      case 90:  return { x: Y - y0, y: X - x0 };
+      case 180: return { x: x1 - X, y: Y - y0 };
+      case 270: return { x: y1 - Y, y: x1 - X };
+      default:  throw new Error('rotation non multiple de 90 : ' + pageInfo.rotation);
+    }
+  }
+
   // Raccourci pour une page PDF.js, avec un pivotement supplémentaire éventuel
   const infoPage = (page, pivot = 0) => ({ view: page.view, rotation: page.rotate + pivot });
 
-  MPDS.pdfCoord = { versPdf, infoPage };
+  MPDS.pdfCoord = { versPdf, dePdf, infoPage };
 })();

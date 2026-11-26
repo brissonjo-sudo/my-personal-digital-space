@@ -107,6 +107,23 @@ test('versPdf : fonction pure, valeurs exactes et rotation invalide', async ({ p
   expect(r).toEqual([{ x: 50, y: 700 }, { x: 60, y: 680 }, { x: 70, y: 110 }, { x: 440, y: 120 }, { x: 430, y: 690 }, { x: 430, y: 690 }, { x: 60, y: 680 }, expect.stringContaining('45')]);
 });
 
+test('dePdf : inverse exact de versPdf (4 rotations, CropBox décalée) et valeurs connues', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const v = [50, 100, 450, 700], C = MPDS.pdfCoord, ecart = [];
+    for (const rotation of [0, 90, 180, 270, -90, 450]) for (const [x, y] of [[0, 0], [10, 20], [123.5, 77.25], [400, 600]]) {
+      const p = C.versPdf({ view: v, rotation }, x, y), q = C.dePdf({ view: v, rotation }, p.x, p.y);
+      ecart.push(Math.abs(q.x - x) + Math.abs(q.y - y));
+    }
+    let erreur = '';
+    try { C.dePdf({ view: v, rotation: 45 }, 0, 0); } catch (e) { erreur = e.message; }
+    const f = (rotation, X, Y) => C.dePdf({ view: v, rotation }, X, Y);
+    return { ecart: Math.max(...ecart), valeurs: [f(0, 60, 680), f(90, 70, 110), f(180, 440, 120), f(270, 430, 690)], erreur };
+  });
+  expect(r.ecart).toBeLessThan(1e-9);
+  expect(r.valeurs).toEqual([{ x: 10, y: 20 }, { x: 10, y: 20 }, { x: 10, y: 20 }, { x: 10, y: 20 }]);
+  expect(r.erreur).toContain('45');
+});
+
 // ---- Critère 3 : encodage ----
 test('encodage : accents français passent (et se relisent), hors WinAnsi signalé clairement', async ({ page }) => {
   await charger(page);

@@ -1,5 +1,5 @@
 // Module PDF — export : reconstruit un PDF neuf à partir du modèle de pages (copyPages,
-// setRotation). Bibliothèque d'écriture chargée à la demande (≈ 600 Ko), vérifiée par SRI.
+// setRotation) et y aplatit les annotations (aplatir). Bibliothèque d'écriture chargée à la demande (≈ 600 Ko), vérifiée par SRI.
 // Publie MPDS.pdfExport.
 (() => {
   'use strict';
@@ -14,9 +14,35 @@
     return PDFLib;
   }
 
-  // pages : [{ source, index, rotation }] → Uint8Array d'un nouveau PDF
+  const hex = h => {   // '#rrggbb' → rgb() ; noir si invalide
+    const n = /^#[0-9a-f]{6}$/i.test(h) ? parseInt(h.slice(1), 16) : 0;
+    return PDFLib.rgb((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+  };
+
+  // Aplatit les annotations d'une page (coordonnées en points PDF, voir annotations.js)
+  async function aplatir(sortie, c, annots, polices) {
+    const { degrees, StandardFonts, LineCapStyle } = PDFLib;
+    for (const a of annots) {
+      const color = hex(a.couleur);
+      if (a.type === 'surlig') {
+        c.drawRectangle({ x: a.x, y: a.y, width: a.w, height: a.h, color, opacity: a.opacite, borderWidth: 0 });
+      } else if (a.type === 'texte') {
+        const nom = StandardFonts[a.police] ? a.police : 'Helvetica';
+        if (!polices.has(nom)) polices.set(nom, await sortie.embedFont(StandardFonts[nom]));
+        // verifier() : le fork remplace sinon en silence un caractère hors WinAnsi par « ? »
+        c.drawText(MPDS.pdfTexte.verifier(a.texte), { x: a.x, y: a.y, size: a.taille, font: polices.get(nom), color, rotate: degrees(a.angle || 0) });
+      } else if (a.type === 'dessin') {
+        for (let i = 1; i < a.pts.length; i++) {
+          c.drawLine({ start: { x: a.pts[i - 1][0], y: a.pts[i - 1][1] }, end: { x: a.pts[i][0], y: a.pts[i][1] }, thickness: a.epaisseur, color, lineCap: LineCapStyle.Round });
+        }
+      }
+    }
+  }
+
+  // pages : [{ source, index, rotation, annots? }] → Uint8Array d'un nouveau PDF
   async function construire(pages) {
     const { PDFDocument, degrees } = await bibliotheque();
+    const polices = new Map();
     const sortie = await PDFDocument.create();
     const copies = new Map();    // page du modèle → page copiée
     for (const src of new Set(pages.map(p => p.source))) {
@@ -35,6 +61,7 @@
       const c = copies.get(p);
       c.setRotation(degrees((((c.getRotation().angle + p.rotation) % 360) + 360) % 360));
       sortie.addPage(c);
+      await aplatir(sortie, c, p.annots || [], polices);
     }
     return sortie.save();
   }

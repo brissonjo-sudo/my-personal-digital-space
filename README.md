@@ -11,7 +11,8 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📝 **Convertir** : documents bureautiques → Markdown | ✅ disponible |
 | 📑 **PDF** : visionneuse (pages, miniatures, zoom) | ✅ disponible |
 | 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
-| 📑 **PDF** : annoter, signer, tamponner, remplir les formulaires | 🔨 en cours |
+| 📑 **PDF** : annoter (surligneur, texte, dessin, gomme, annuler/rétablir), figé dans la page à l'export | ✅ disponible |
+| 📑 **PDF** : signer, tamponner, remplir les formulaires | 🔨 en cours |
 
 ---
 
@@ -117,7 +118,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
   - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, styles communs
-  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `visionneuse.js`, `coordonnees.js` (point d'affichage → point PDF, pour les annotations) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `visionneuse.js`, `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -174,8 +175,8 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 
 ## 📅 Roadmap (idées, non engageant)
 
-- ✅ Module PDF : visionneuse
-- 🔨 Module PDF : annoter, signer, tamponner, pages, formulaires
+- ✅ Module PDF : visionneuse, pages, annotations
+- 🔨 Module PDF : signer, tamponner, formulaires
 - 🔭 Images : compresser, redimensionner, convertir, retirer les métadonnées
 - 🔭 PDF : compresser, caviarder
 - 🔭 Markdown → Word / PDF

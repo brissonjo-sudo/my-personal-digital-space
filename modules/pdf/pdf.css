@@ -21,7 +21,7 @@
 .pdf-barre-pages { padding-bottom: .5rem; border-bottom: 1px solid var(--border); }
 .pdf-modif { margin-left: auto; font-size: .85rem; color: var(--warn); font-weight: 600; }
 #pdf-zoom { min-width: 3.5rem; text-align: center; font-variant-numeric: tabular-nums; }
-.pdf-btn:focus-visible, .pdf-coche:focus-visible, .pdf-num:focus-visible, .pdf-vide:focus-visible, .pdf-mini:focus-visible, .pdf-scene:focus-visible {
+.pdf-btn:focus-visible, .pdf-pastille:focus-visible, .pdf-reglage input:focus-visible, .pdf-reglage select:focus-visible, .pdf-saisie:focus-visible, .pdf-coche:focus-visible, .pdf-num:focus-visible, .pdf-vide:focus-visible, .pdf-mini:focus-visible, .pdf-scene:focus-visible {
   outline: 3px solid var(--accent); outline-offset: 2px;
 }
 .pdf-etat:empty { display: none; }
@@ -60,9 +60,35 @@
   flex: 1; min-width: 0; overflow: auto; padding: 1rem; scrollbar-gutter: stable;
   background: var(--fond-2); border: 1px solid var(--border); border-radius: var(--radius);
 }
-#pdf-canvas { display: block; margin: 0 auto; background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, .25); }
+#pdf-canvas { display: block; background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, .25); }
 
 @media (max-width: 600px) {
   .pdf-miniatures { flex-basis: 5rem; }
   .pdf-outils { margin-left: 0; }
 }
+
+/* Annotations : barre d'outils, calque SVG au-dessus du canvas, zone de saisie du texte */
+.pdf-module:not([data-etat="pret"]) .pdf-barre-annot { display: none; }
+.pdf-palette { display: inline-flex; gap: .3rem; align-items: center; margin-left: .25rem; }
+.pdf-pastille { width: 1.5rem; height: 1.5rem; padding: 0; cursor: pointer; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.pdf-pastille[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.pdf-reglage { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--muted); }
+.pdf-reglage[hidden] { display: none; }
+.pdf-reglage input[type="number"], .pdf-reglage select {
+  font: inherit; padding: .25rem .35rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.pdf-reglage input[type="number"] { width: 4rem; }
+.pdf-reglage output { min-width: 2.5rem; font-variant-numeric: tabular-nums; }
+.pdf-feuille { position: relative; width: fit-content; margin: 0 auto; }
+.pdf-calque { position: absolute; top: 0; left: 0; touch-action: none; user-select: none; cursor: default; }
+.pdf-calque[data-outil="surlig"], .pdf-calque[data-outil="dessin"] { cursor: crosshair; }
+.pdf-calque[data-outil="texte"] { cursor: text; }
+.pdf-calque[data-outil="gomme"] .pdf-annot { cursor: pointer; }
+.pdf-calque[data-outil="sel"] .pdf-annot { cursor: move; }
+.pdf-contour { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+.pdf-apercu { pointer-events: none; }
+.pdf-saisie {
+  position: absolute; margin: 0; padding: 0 .15em; min-width: 8em; line-height: 1.2; box-sizing: content-box;
+  background: rgba(255, 255, 255, .85); border: 1px dashed var(--accent); border-radius: 2px;
+}
+.pdf-saisie[aria-invalid="true"] { border: 2px solid var(--err); }
