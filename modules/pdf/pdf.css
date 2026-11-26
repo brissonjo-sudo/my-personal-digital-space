@@ -163,6 +163,19 @@
 .pdf-champ:is(textarea) { padding: .15em .3em; resize: none; line-height: 1.2; }
 .pdf-champ[aria-invalid="true"] { border: 2px solid var(--page-err); }
 .pdf-champ:disabled, .pdf-champ[readonly] { background: var(--champ-off); border-color: var(--champ-off-bord); color: var(--champ-off-texte); }
+/* Champ à cases : boîte élargie à droite (voir formulaire.js) ; cadre et fond dessinés sur la seule largeur des
+   cases, fond translucide : les cases dessinées par le PDF restent visibles sous les lettres */
+.pdf-champ.pdf-champ-cases {
+  --fond: color-mix(in srgb, var(--champ-fond) 55%, transparent); --trait: var(--page-accent); --ep: 1px;
+  border: 0; padding-right: 0; font-family: "Courier New", Courier, monospace; background-repeat: no-repeat;
+  background-image: linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--trait), var(--trait)),
+    linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--fond), var(--fond));
+  background-size: var(--cases) var(--ep), var(--cases) var(--ep), var(--ep) 100%, var(--ep) 100%, var(--cases) 100%;
+  background-position: 0 0, 0 100%, 0 0, calc(var(--cases) - var(--ep)) 0, 0 0;
+}
+.pdf-champ-cases:focus { outline: 0; --fond: color-mix(in srgb, var(--page) 55%, transparent); --ep: 2px; }
+.pdf-champ-cases[aria-invalid="true"] { --trait: var(--page-err); --ep: 2px; }
+.pdf-champ-cases[readonly] { --fond: var(--champ-off); --trait: var(--champ-off-bord); color: var(--champ-off-texte); }
 .pdf-champ-case, .pdf-champ-radio { appearance: none; -webkit-appearance: none; padding: 0; cursor: pointer; display: grid; place-content: center; }
 .pdf-champ-radio { border-radius: 50%; }
 .pdf-champ-case:checked, .pdf-champ-radio:checked { background: var(--page-accent); }

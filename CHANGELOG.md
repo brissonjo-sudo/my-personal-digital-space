@@ -3,6 +3,7 @@
 ## [Non publié]
 
 ### Corrigé
+- 2026-11-26 — **Formulaires : champs à cases** (essai sur de vrais Cerfa). Un champ à cases (SIRET, VIN, date, code postal ; drapeau `Comb`) s'affichait à l'écran en texte continu alors que l'export place une lettre par case. Il montre maintenant une lettre centrée dans chaque case, en chasse fixe. Le champ plein ne défile plus pendant la saisie : la boîte est élargie de la demi-marge qui suit la dernière lettre, tandis que le cadre et le fond, translucide, restent sur la largeur des cases. Essayé sur les Cerfa 13757, 14880, 12485, 15497 et 13406 (21 à 374 champs) : valeurs présentes à l'export, aucun champ restant.
 - 2026-11-26 — **Constats mineurs de la revue des PR #1 à #7** (reportés de la PR #8).
   - **Annotations** : raccourcis ignorés pendant un geste ; un clic qui tremble (≤ 2 px) n'est plus un déplacement ; un geste interrompu (`pointercancel`, capture perdue, page redessinée) défait le déplacement ou le redimensionnement sans rien enregistrer ; le texte en cours de saisie est posé quand la page est redessinée ; un second pointeur est ignoré ; « Annuler » se met à jour après la suppression d'une page.
   - **Visionneuse** : à fort zoom, ←/→ font défiler la page quand la scène a le focus (PageUp/PageDown changent de page) ; fermer ou recharger l'onglet avec des modifications non enregistrées demande confirmation.
