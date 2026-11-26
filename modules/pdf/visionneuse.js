@@ -8,38 +8,6 @@
   const ZOOM_MIN = NIVEAUX[0], ZOOM_MAX = NIVEAUX[NIVEAUX.length - 1];
   const MARGE = 32;            // marge horizontale de la scène (2 × 1rem, voir pdf.css)
 
-  const MARKUP = `
-<div class="pdf-module" data-etat="vide">
-  <div class="pdf-barre">
-    <button type="button" class="pdf-btn pdf-btn-primaire" id="pdf-ouvrir">Ouvrir un PDF</button>
-    <input type="file" id="pdf-fichier" accept=".pdf,application/pdf" hidden>
-    <span class="pdf-nom" id="pdf-nom"></span>
-    <span class="pdf-nb" id="pdf-nb"></span>
-    <div class="pdf-outils" id="pdf-outils" hidden>
-      <button type="button" class="pdf-btn" id="pdf-prec" aria-label="Page précédente">‹</button>
-      <input type="number" class="pdf-num" id="pdf-num" min="1" value="1" aria-label="Numéro de page">
-      <span id="pdf-total">/ 1</span>
-      <button type="button" class="pdf-btn" id="pdf-suiv" aria-label="Page suivante">›</button>
-      <span class="pdf-sep" aria-hidden="true"></span>
-      <button type="button" class="pdf-btn" id="pdf-moins" aria-label="Zoom arrière">−</button>
-      <output id="pdf-zoom" aria-label="Niveau de zoom">100 %</output>
-      <button type="button" class="pdf-btn" id="pdf-plus" aria-label="Zoom avant">+</button>
-      <button type="button" class="pdf-btn" id="pdf-largeur">Ajuster à la largeur</button>
-    </div>
-  </div>
-  <div class="pdf-barre pdf-barre-pages" id="pdf-barre-pages" role="toolbar" aria-label="Actions sur les pages"></div>
-  <div class="pdf-barre pdf-barre-annot" id="pdf-barre-annot" role="toolbar" aria-label="Annotations"></div>
-  <div class="pdf-bandeau" id="pdf-bandeau-form" role="status" hidden></div>
-  <div class="pdf-etat" id="pdf-etat" role="status" aria-live="polite"></div>
-  <button type="button" class="pdf-vide" id="pdf-vide">
-    <span class="pdf-vide-titre">Ouvrir un PDF</span>
-    <span>Cliquez ici ou glissez un fichier PDF sur cette page. Il reste sur votre appareil.</span>
-  </button>
-  <div class="pdf-corps">
-    <nav class="pdf-miniatures" id="pdf-miniatures" aria-label="Pages du document"></nav>
-    <div class="pdf-scene" id="pdf-scene" tabindex="0" aria-label="Page du document"></div>
-  </div>
-</div>`;
 
   let racine = null, module = null, q = null;   // section du module, son conteneur, éléments par nom
   const modele = MPDS.pdfPages.creer();          // pages affichées : [{ source, index, rotation }]
@@ -235,10 +203,10 @@
 
   function monter(section) {
     racine = section;
-    racine.innerHTML = MARKUP;    // gabarit statique : aucune donnée de fichier
+    racine.innerHTML = MPDS.pdfGabarit();    // gabarit statique (gabarit.js) : aucune donnée de fichier
     module = racine.querySelector('.pdf-module');
     q = {};
-    for (const n of ['ouvrir', 'fichier', 'nom', 'nb', 'outils', 'prec', 'num', 'total', 'suiv', 'moins', 'zoom', 'plus', 'largeur', 'etat', 'vide', 'miniatures', 'scene', 'barre-pages', 'barre-annot', 'bandeau-form']) {
+    for (const n of ['ouvrir', 'fichier', 'nom', 'nb', 'outils', 'prec', 'num', 'total', 'suiv', 'moins', 'zoom', 'plus', 'largeur', 'etat', 'vide', 'miniatures', 'scene', 'barre-pages', 'barre-doc', 'barre-annot', 'bandeau-form', 'modif']) {
       q[n] = racine.querySelector('#pdf-' + n);
     }
     miniatures = MPDS.pdfMiniatures.creer({
@@ -248,7 +216,7 @@
       surSelection: () => actions.maj(),
     });
     actions = MPDS.pdfActions.creer({
-      modele, barre: q['barre-pages'], courante: () => page, nom: () => q.nom.textContent,
+      modele, barre: q['barre-pages'], barreDoc: q['barre-doc'], modif: q.modif, courante: () => page, nom: () => q.nom.textContent,
       rafraichir, message, ajouter,
     });
     formulaire = MPDS.pdfFormulaire.creer({ modele, bandeau: q['bandeau-form'], message, majBarre, rafraichir });
@@ -294,5 +262,5 @@
     if (q) { annot.detruire(); fermerDocument(); }
   }
 
-  MPDS.enregistrer({ id: ID, titre: 'PDF', icone: '📑', monter, demonter, surFichier: ouvrir });
+  MPDS.enregistrer({ id: ID, titre: 'PDF', icone: 'pdf', monter, demonter, surFichier: ouvrir });
 })();

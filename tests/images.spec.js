@@ -43,7 +43,7 @@ test('Word : images extraites, liens relatifs, plus de base64', async ({ page })
 test('Télécharger un document avec images livre un ZIP complet', async ({ page }) => {
   await convertirDocx(page, ['rapport.docx']);
   const bouton = page.locator('.journal-actions-item button').first();
-  await expect(bouton).toHaveText('⬇️ Télécharger (.zip)');
+  await expect(bouton).toHaveText('Télécharger (.zip)');
   const { nom, zip } = await telecharger(page, () => bouton.click());
   expect(nom).toBe('rapport.zip');
   expect(Object.keys(zip.files).filter(f => !f.endsWith('/')).sort())
@@ -85,7 +85,7 @@ test('HTML : images base64 extraites, images distantes conservées', async ({ pa
 test('sans image : téléchargement du .md seul', async ({ page }) => {
   await page.evaluate(() => traiterFichiers([Fab.texte('note.txt', 'Bonjour')]));
   const bouton = page.locator('.journal-actions-item button').first();
-  await expect(bouton).toHaveText('⬇️ Télécharger');
+  await expect(bouton).toHaveText('Télécharger');
   const [dl] = await Promise.all([page.waitForEvent('download'), bouton.click()]);
   expect(dl.suggestedFilename()).toBe('note.md');
 });

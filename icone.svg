@@ -1,12 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Convertisseur Markdown">
-  <!-- Icône PWA. viewBox 512 ; le glyphe reste dans la zone de sécurité
-       centrale (~80 %) pour rester lisible en variante maskable (recadrage). -->
-  <rect width="512" height="512" rx="112" fill="#2563eb"/>
-  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
-    <!-- « M » -->
-    <path d="M150 330 V206 l52 62 52 -62 V330"/>
-    <!-- flèche « ↓ » évoquant la conversion -->
-    <path d="M330 206 V314"/>
-    <path d="M300 284 l30 30 30 -30"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="My Personal Digital Space">
+  <!-- Icône PWA, identité « Registre » : carré marine, monogramme « M » à empattements, filet rouge en touche.
+       Le glyphe reste dans la zone de sécurité centrale (~80 %) pour la variante maskable (recadrage). -->
+  <rect width="512" height="512" rx="64" fill="#1b2a4a"/>
+  <path d="M138 348V176l60 118 58-118 58 118 60-118v172" fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="138" y="376" width="236" height="14" fill="#c2412d"/>
 </svg>

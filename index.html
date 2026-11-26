@@ -24,7 +24,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icone.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icone.svg">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#1b2a4a">
 
   <!-- Bibliothèques : cdnjs.cloudflare.com (SheetJS : cdn.sheetjs.com), versions épinglées, empreinte SRI
        vérifiée par le navigateur (un attribut integrity par ligne : la CI compare
@@ -51,6 +51,7 @@
        bibliothèque d'écriture PDF n'est chargée qu'au premier export, voir commun/pdfjs.js). Scripts classiques :
        l'application fonctionne aussi ouverte depuis le disque (file://). -->
   <script defer src="commun/coeur.js"></script>
+  <script defer src="commun/icones.js"></script>
   <script defer src="commun/pdfjs.js"></script>
   <script defer src="modules/convertir/partage.js"></script>
   <script defer src="modules/convertir/convertir.js"></script>
@@ -68,12 +69,20 @@
   <script defer src="modules/pdf/outils.js"></script>
   <script defer src="modules/pdf/formulaire.js"></script>
   <script defer src="modules/pdf/formulaire-export.js"></script>
+  <script defer src="modules/pdf/gabarit.js"></script>
   <script defer src="modules/pdf/visionneuse.js"></script>
 </head>
 <body>
 <div class="mpds">
   <nav class="rail" aria-label="Modules">
+    <div class="rail-marque" aria-hidden="true">M</div>
     <ul class="rail-liste" id="rail-liste"></ul>
+    <div class="rail-sep" aria-hidden="true"></div>
+    <!-- Modules à venir : emplacements réservés, non interactifs -->
+    <ul class="rail-liste rail-attente-liste">
+      <li class="rail-attente" aria-disabled="true"><svg class="icone" aria-hidden="true" focusable="false" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 10a2 2 0 1 0 4 0 2 2 0 1 0-4 0M21 16l-5-5-9 9"/></svg> Images <span class="sr-seul">(bientôt)</span></li>
+      <li class="rail-attente" aria-disabled="true"><svg class="icone" aria-hidden="true" focusable="false" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg> Texte <span class="sr-seul">(bientôt)</span></li>
+    </ul>
   </nav>
   <main class="mpds-contenu" id="mpds-contenu"></main>
 </div>

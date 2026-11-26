@@ -8,7 +8,7 @@ test('route par défaut : Convertir, monté ; rail : Convertir puis PDF', async 
   expect(await page.evaluate(() => location.hash)).toBe('#/convertir');
   await expect(page.locator('section[data-module="convertir"]')).toBeVisible();
   await expect(page.locator('#zone-depot')).toBeVisible();
-  await expect(page.locator('.rail-lien')).toHaveText(['📝Convertir', '📑PDF']);
+  await expect(page.locator('.rail-lien')).toHaveText(['Convertir', 'PDF']);
   await expect(page.locator('.rail-lien').first()).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveTitle('My Personal Digital Space');
 });

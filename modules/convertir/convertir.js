@@ -602,6 +602,12 @@ async function ocrDocument(fichier, nom, progression) {
   }
 }
 
+// Icônes SVG (commun/icones.js) à la place des pictogrammes : bouton = icône + libellé ; pastille d'état du journal
+// à partir du pictogramme que les appelants donnent (✅ ⚠️ ❌ ⏳).
+const avecIcone = (bouton, icone, texte) => bouton.replaceChildren(MPDS.icones.creer(icone, 16), ' ' + texte);
+const ICONES_STATUT = { '✅': 'ok', '⚠️': 'attention', '❌': 'erreur', '⏳': 'attente' };
+const iconeStatut = (el, pictogramme) => el.replaceChildren(MPDS.icones.creer(ICONES_STATUT[pictogramme] || 'ok', 18));
+
 // Un OCR à la fois : chaque moteur occupe plusieurs centaines de Mo de mémoire
 let fileOcr = Promise.resolve();
 
@@ -610,19 +616,19 @@ function lancerOcr(li, resultat, bouton) {
   const icone = li.querySelector('.journal-icone');
   bouton.disabled = true;
   li.className = 'journal-item en-cours';
-  icone.textContent = '⏳';
+  iconeStatut(icone, '⏳');
   msg.textContent = 'OCR : en attente…';
   fileOcr = fileOcr.then(async () => {
     try {
       resultat.md = await ocrDocument(resultat.fichier, resultat.nom, t => { msg.textContent = t; });
       delete resultat.fichier;
       li.className = 'journal-item ok';
-      icone.textContent = '✅';
+      iconeStatut(icone, '✅');
       msg.textContent = `Texte reconnu par OCR → ${resultat.nomMd} (à relire)`;
       bouton.remove();
     } catch (err) {
       li.className = 'journal-item warn';
-      icone.textContent = '⚠️';
+      iconeStatut(icone, '⚠️');
       msg.textContent = `OCR impossible : ${err.message}`;
       bouton.disabled = false;
     }
@@ -1141,8 +1147,8 @@ let journalSection, journalListe, btnZip, btnVider, apercuOverlay, apercuTitre, 
 const MARKUP_CONVERTIR = `<div class="app">
   <!-- En-tête -->
   <header>
-    <h1>📄 ➜ 📝 Convertisseur Markdown</h1>
-    <p class="confidentialite">🔒 Vos fichiers ne quittent jamais votre appareil — conversion 100 % locale</p>
+    <h1>Convertir en Markdown</h1>
+    <p class="confidentialite">${MPDS.icones.svg('verrou', 16)} Vos fichiers ne quittent jamais votre appareil — conversion 100 % locale</p>
   </header>
 
   <!-- Bandeau CDN (masqué par défaut) -->
@@ -1155,7 +1161,7 @@ const MARKUP_CONVERTIR = `<div class="app">
     <input type="file" id="input-fichiers" multiple
            accept=".pdf,.docx,.doc,.odt,.xlsx,.xls,.ods,.csv,.tsv,.pptx,.ppt,.odp,.txt,.html,.htm,.eml,.epub,.png,.jpg,.jpeg,.webp"
            aria-hidden="true" tabindex="-1">
-    <div class="zone-depot-icone">⬇️</div>
+    <div class="zone-depot-icone">${MPDS.icones.svg('deposer', 40)}</div>
     <p class="zone-depot-titre">Glissez vos fichiers ici</p>
     <p class="zone-depot-sub">ou <span>cliquez pour choisir</span>, ou collez un texte (Ctrl+V)</p>
     <span class="formats-badge">PDF · Word · Excel · CSV · PowerPoint · LibreOffice · HTML · TXT · Courriels · EPUB · Images (OCR)</span>
@@ -1173,10 +1179,10 @@ const MARKUP_CONVERTIR = `<div class="app">
       <h2>Journal de conversion</h2>
       <div class="journal-actions">
         <button class="btn btn-primaire" id="btn-zip" hidden aria-label="Télécharger tous les fichiers convertis en ZIP">
-          <span aria-hidden="true">⬇️</span> Tout télécharger (.zip)
+          ${MPDS.icones.svg('telecharger', 16)} Tout télécharger (.zip)
         </button>
         <button class="btn btn-secondaire" id="btn-vider" aria-label="Vider le journal">
-          <span aria-hidden="true">🗑️</span> Vider
+          ${MPDS.icones.svg('supprimer', 16)} Vider
         </button>
       </div>
     </div>
@@ -1191,8 +1197,8 @@ const MARKUP_CONVERTIR = `<div class="app">
     <div class="apercu-header">
       <span class="apercu-titre" id="apercu-titre"></span>
       <div class="apercu-header-actions">
-        <button class="btn btn-secondaire btn-petit" id="btn-copier"><span aria-hidden="true">📋</span> Copier</button>
-        <button class="btn btn-secondaire btn-petit" id="btn-fermer-apercu"><span aria-hidden="true">✖</span> Fermer</button>
+        <button class="btn btn-secondaire btn-petit" id="btn-copier">${MPDS.icones.svg('copier', 16)} Copier</button>
+        <button class="btn btn-secondaire btn-petit" id="btn-fermer-apercu">${MPDS.icones.svg('fermer', 16)} Fermer</button>
       </div>
     </div>
     <p class="apercu-note" id="apercu-note" role="status" hidden></p>
@@ -1290,8 +1296,8 @@ function initUI(el) {
     const btn = document.getElementById('btn-copier');
     // Toujours le Markdown complet, même si l'aperçu affiché est tronqué
     const reussi = await copierTexte(apercuMdComplet);
-    btn.textContent = reussi ? '✅ Copié !' : '⚠️ Copie impossible';
-    setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000);
+    avecIcone(btn, reussi ? 'ok' : 'attention', reussi ? 'Copié !' : 'Copie impossible');
+    setTimeout(() => avecIcone(btn, 'copier', 'Copier'), 2000);
   });
 
   // Option d'en-tête YAML, mémorisée pour ce navigateur
@@ -1321,7 +1327,7 @@ function ajouterLigne({ id, icone, nom, statut, msg, cliquable }) {
   const spanIcone = document.createElement('span');
   spanIcone.className = 'journal-icone';
   spanIcone.setAttribute('aria-hidden', 'true');
-  spanIcone.textContent = icone;
+  iconeStatut(spanIcone, icone);
 
   const divCorps = document.createElement('div');
   divCorps.className = 'journal-corps';
@@ -1347,7 +1353,7 @@ function mettreAJourLigne(id, { icone, statut, msg, resultat, proposerOcr, cliqu
   if (!li) return;
 
   li.className = `journal-item ${statut}`;
-  li.querySelector('.journal-icone').textContent = icone;
+  iconeStatut(li.querySelector('.journal-icone'), icone);
   li.querySelector('.journal-msg').textContent   = msg;
 
   const nomSpan = li.querySelector('.journal-nom');
@@ -1364,7 +1370,7 @@ function mettreAJourLigne(id, { icone, statut, msg, resultat, proposerOcr, cliqu
     if (proposerOcr) {
       const btnOcr = document.createElement('button');
       btnOcr.className = 'btn btn-primaire btn-petit';
-      btnOcr.textContent = '🔍 Reconnaître le texte (OCR)';
+      avecIcone(btnOcr, 'ocr', 'Reconnaître le texte (OCR)');
       btnOcr.title = 'Reconnaissance faite sur votre appareil. Environ 5 Mo à télécharger la première fois, puis disponible hors ligne.';
       btnOcr.addEventListener('click', () => lancerOcr(li, resultat, btnOcr));
       actions.appendChild(btnOcr);
@@ -1373,7 +1379,7 @@ function mettreAJourLigne(id, { icone, statut, msg, resultat, proposerOcr, cliqu
     // Avec des images, le .md seul aurait des liens cassés : on livre une archive
     const btnDl = document.createElement('button');
     btnDl.className = 'btn btn-secondaire btn-petit';
-    btnDl.textContent = images.length ? '⬇️ Télécharger (.zip)' : '⬇️ Télécharger';
+    avecIcone(btnDl, 'telecharger', images.length ? 'Télécharger (.zip)' : 'Télécharger');
     if (images.length) btnDl.title = `${nomMd} et ses ${images.length} ${motFichiers(images)}(s), dans une archive`;
     btnDl.addEventListener('click', () => images.length
       ? genererZip([resultat], baseName(nomMd) + '.zip')
@@ -1381,7 +1387,7 @@ function mettreAJourLigne(id, { icone, statut, msg, resultat, proposerOcr, cliqu
 
     const btnPrev = document.createElement('button');
     btnPrev.className = 'btn btn-secondaire btn-petit';
-    btnPrev.textContent = '👁️ Aperçu';
+    avecIcone(btnPrev, 'apercu', 'Aperçu');
     btnPrev.addEventListener('click', apercu);
 
     actions.appendChild(btnDl);
@@ -1524,7 +1530,7 @@ function verifierBibliotheques() {
 MPDS.enregistrer({
   id: 'convertir',
   titre: 'Convertir',
-  icone: '📝',
+  icone: 'convertir',
   monter: initUI,
   demonter: demonterConvertir,
   surFichier: fichier => traiterFichiers([fichier]),

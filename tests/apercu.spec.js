@@ -50,7 +50,7 @@ test('« Copier » copie le fichier complet, pas seulement l\'aperçu', async ({
   const taille = await convertirCsv(page, 100000);
   await page.locator('.journal-actions-item button', { hasText: 'Aperçu' }).click();
   await page.click('#btn-copier');
-  await expect(page.locator('#btn-copier')).toHaveText('✅ Copié !');
+  await expect(page.locator('#btn-copier')).toHaveText('Copié !');
   // Le presse-papiers de Windows convertit les fins de ligne en \r\n
   const copie = (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n');
   expect(copie.length).toBe(taille);
@@ -63,7 +63,7 @@ test('copie : repli quand l\'API presse-papiers est refusée', async ({ page }) 
   });
   await page.locator('.journal-actions-item button', { hasText: 'Aperçu' }).click();
   await page.click('#btn-copier');
-  await expect(page.locator('#btn-copier')).toHaveText('✅ Copié !');
+  await expect(page.locator('#btn-copier')).toHaveText('Copié !');
   const copie = await page.evaluate(() => navigator.clipboard.readText());
   expect(copie).toContain('| v9 | donnée 9 | 9 |');
 });
