@@ -5,6 +5,7 @@
 //   texte  : { type, x, y (début de la ligne de base), texte, police (clé de StandardFonts), taille,
 //              couleur, angle (sens de lecture, degrés anti-horaires : celui de la rotation affichée) }
 //   dessin : { type, pts [[x, y], …], couleur, epaisseur }
+//   signature : { type, x, y (coin bas-gauche), w, h, png (data URL), angle } ; tampon : voir tampons.js (même repère, + w, h, taille, incl)
 // Publie MPDS.pdfAnnotations.creer(modele, surChangement(page)).
 (() => {
   'use strict';

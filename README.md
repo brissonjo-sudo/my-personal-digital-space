@@ -12,7 +12,8 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📑 **PDF** : visionneuse (pages, miniatures, zoom) | ✅ disponible |
 | 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
 | 📑 **PDF** : annoter (surligneur, texte, dessin, gomme, annuler/rétablir), figé dans la page à l'export | ✅ disponible |
-| 📑 **PDF** : signer, tamponner, remplir les formulaires | 🔨 en cours |
+| 📑 **PDF** : signer (dessin ou image au fond retiré, jamais stockée) et tamponner (10 tampons), figés dans la page à l'export | ✅ disponible |
+| 📑 **PDF** : remplir les formulaires | 🔨 en cours |
 
 ---
 
@@ -118,7 +119,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
   - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, styles communs
-  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `visionneuse.js`, `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `tampons.js` (catalogue, rendu, export des tampons), `visionneuse.js`, `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -176,7 +177,8 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 ## 📅 Roadmap (idées, non engageant)
 
 - ✅ Module PDF : visionneuse, pages, annotations
-- 🔨 Module PDF : signer, tamponner, formulaires
+- ✅ Module PDF : signer, tamponner
+- 🔨 Module PDF : formulaires
 - 🔭 Images : compresser, redimensionner, convertir, retirer les métadonnées
 - 🔭 PDF : compresser, caviarder
 - 🔭 Markdown → Word / PDF
