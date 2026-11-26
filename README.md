@@ -10,7 +10,8 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | --- | --- |
 | 📝 **Convertir** : documents bureautiques → Markdown | ✅ disponible |
 | 📑 **PDF** : visionneuse (pages, miniatures, zoom) | ✅ disponible |
-| 📑 **PDF** : annoter, signer, tamponner, gérer les pages, remplir les formulaires | 🔨 en cours |
+| 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
+| 📑 **PDF** : annoter, signer, tamponner, remplir les formulaires | 🔨 en cours |
 
 ---
 
@@ -116,7 +117,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
   - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, styles communs
-  - `modules/<nom>/` — un dossier par module (scripts et styles)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `visionneuse.js`, `coordonnees.js` (point d'affichage → point PDF, pour les annotations) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -124,7 +125,8 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Zéro framework** : JavaScript vanilla, pas de webpack, pas de build
 - **Conversions lourdes déléguées** : les tableurs / CSV / PowerPoint / OpenDocument sont parsés dans un **Web Worker** (construit à partir de la fonction `codePartage()` de `modules/convertir/partage.js`, sans duplication de code), avec repli automatique sur le fil principal si le worker ne peut pas démarrer
 - **Hors ligne (PWA)** : le service worker met en cache les bibliothèques à la première visite, et les fichiers de l'OCR à son premier usage
-- **Bibliothèques tierces** : chargées depuis [cdnjs.cloudflare.com](https://cdnjs.com), [cdn.sheetjs.com](https://cdn.sheetjs.com) pour SheetJS (plus publié sur cdnjs depuis la 0.18.5, vulnérable) et [jsDelivr](https://www.jsdelivr.com) pour l'OCR, versions épinglées, empreintes SRI vérifiées
+- **Bibliothèques tierces** : chargées depuis [cdnjs.cloudflare.com](https://cdnjs.com), [cdn.sheetjs.com](https://cdn.sheetjs.com) pour SheetJS (plus publié sur cdnjs depuis la 0.18.5, vulnérable) et [jsDelivr](https://www.jsdelivr.com) pour l'OCR et l'écriture de PDF, versions épinglées, empreintes SRI vérifiées
+- **Écriture de PDF** : [`@cantoo/pdf-lib`](https://github.com/cantoo-scribe/pdf-lib) 2.11.1 (fork maintenu de pdf-lib, qui n'est plus publié depuis 2021 et ne sait pas ouvrir un PDF chiffré, comme beaucoup de Cerfa). Chargée **à la demande** au premier enregistrement (≈ 600 Ko) : `MPDS.chargerScript` télécharge le fichier, vérifie son empreinte SRI, puis l'exécute depuis une URL `blob:`. Elle n'a donc pas de balise dans la page et la CSP est inchangée
 - **Accessibilité** : navigation clavier complète, focus piégé dans la fenêtre d'aperçu, attributs ARIA, journal annoncé aux lecteurs d'écran (`aria-live`)
 - **Compatibilité** : Chrome, Edge et Firefox récents ; tests automatisés sous Chromium
 
@@ -132,7 +134,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 
 - ✅ Conversion 100 % côté client (zéro requête réseau pour les fichiers)
 - ✅ CSP : la page ne peut se connecter qu'à elle-même et aux trois CDN ci-dessus, en lecture seule (vérifié par des tests qui tentent des fuites)
-- ✅ SRI : toute bibliothèque, y compris celles chargées par les workers et l'OCR, est vérifiée par son empreinte ; la CI compare ces empreintes aux fichiers réellement servis par les CDN
+- ✅ SRI : toute bibliothèque, y compris celles chargées par les workers, l'OCR et l'écriture de PDF, est vérifiée par son empreinte ; la CI compare ces empreintes aux fichiers réellement servis par les CDN
 - ✅ Données de langue de l'OCR : ce sont des données, pas du code, et elles ne sont pas vérifiées par empreinte ; la CSP garantit qu'elles ne peuvent venir que de jsDelivr
 - ✅ Construction DOM sécurisée (pas d'`innerHTML` avec données externes → pas de XSS)
 - ✅ HTML malveillant neutralisé (DOMParser inerte, `<script>`/`<style>` retirés)

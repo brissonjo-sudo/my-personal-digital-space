@@ -44,9 +44,16 @@ Après une session significative, mettre à jour :
   (`localStorage`, clés préfixées `mpds-`).
 - **Cache du service worker préfixé `mpds-`** : ne jamais supprimer un cache
   d'un autre préfixe (même origine que l'ancien outil sur github.io).
-- Ajouter une bibliothèque touche 4 endroits : URL + SRI dans `index.html`,
-  `PRECACHE` dans `sw.js` (+ `VERSION`), `tests/serveur.js`,
-  `tests/verifier-cdn.js`.
+- Ajouter une bibliothèque :
+  - chargée au démarrage : balise + SRI dans `index.html`, `PRECACHE` dans
+    `sw.js` (+ `VERSION`), version exacte dans `package.json` ;
+  - chargée à la demande (ex. pdf-lib) : ligne dans la table `INTEGRITE` de
+    `commun/pdfjs.js`, `MPDS.chargerScript(url)`, cache à la volée dans
+    `sw.js`, version exacte dans `package.json`.
+  - `tests/serveur.js` et `tests/verifier-cdn.js` lisent ces sources ; lancer
+    `node tests/verifier-cdn.js` (réseau) pour l'empreinte réelle.
+- Texte dessiné dans un PDF : passer par `MPDS.pdfTexte.verifier` (le fork
+  pdf-lib remplace en silence les caractères hors WinAnsi par « ? »).
 
 ## À éviter
 

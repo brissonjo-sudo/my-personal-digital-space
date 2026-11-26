@@ -6,6 +6,7 @@
     "test": "playwright test"
   },
   "devDependencies": {
+    "@cantoo/pdf-lib": "2.11.1",
     "@playwright/test": "1.63.0",
     "@tesseract.js-data/fra": "1.0.0",
     "jszip": "3.10.1",

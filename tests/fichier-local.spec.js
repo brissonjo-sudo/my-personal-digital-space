@@ -52,6 +52,11 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
   await expect(page.locator('#pdf-canvas')).toBeVisible();
   await expect(page.locator('#pdf-nb')).toHaveText('2 pages');
   await expect(page.locator('.pdf-mini')).toHaveCount(2);
+  // Export : bibliothèque d'écriture chargée à la demande (fetch vérifié + <script src=blob:>) aussi en file://
+  const [telechargement] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Pivoter à droite', exact: true }).click()
+    .then(() => page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click())]);
+  expect(telechargement.suggestedFilename()).toBe('v (modifié).pdf');
+  expect(fs.readFileSync(await telechargement.path()).subarray(0, 5).toString()).toBe('%PDF-');
   expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
   fs.rmSync(dossier, { recursive: true, force: true });
 });
