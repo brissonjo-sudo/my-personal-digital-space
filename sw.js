@@ -9,7 +9,7 @@
  */
 'use strict';
 
-const VERSION = 'mpds-v1';                    // ← nom du cache ; bump si libs CDN changent
+const VERSION = 'mpds-v2';                    // ← nom du cache ; bump si libs CDN changent
 const PREFIXE = 'mpds-';                      // seuls les caches de ce préfixe nous appartiennent
 const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 // SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
@@ -23,9 +23,12 @@ const PRECACHE = [
   './icone.svg',
   './commun/style.css',
   './commun/coeur.js',
+  './commun/pdfjs.js',
   './modules/convertir/convertir.css',
   './modules/convertir/partage.js',
   './modules/convertir/convertir.js',
+  './modules/pdf/pdf.css',
+  './modules/pdf/visionneuse.js',
   `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
   `${CDN}/turndown/7.1.2/turndown.min.js`,
   `${CDN}/pdf.js/3.11.174/pdf.min.js`,
