@@ -8,7 +8,8 @@
     ['gauche', 'Pivoter à gauche', '↺'], ['droite', 'Pivoter à droite', '↻'],
     ['monter', 'Monter la page', '▲'], ['descendre', 'Descendre la page', '▼'],
     ['supprimer', 'Supprimer', '🗑'], ['ajouter', 'Ajouter un PDF', '＋'],
-    ['extraire', 'Extraire la sélection', ''], ['enregistrer', 'Enregistrer le PDF', '', 'pdf-btn-primaire'],
+    ['extraire', 'Extraire la sélection', ''], ['markdown', 'Convertir en Markdown', '📝'],
+    ['enregistrer', 'Enregistrer le PDF', '', 'pdf-btn-primaire'],
   ];
 
   function creer(ctx) {
@@ -31,7 +32,7 @@
     function maj() {
       const n = modele.liste.length, ouvert = n > 0, cur = ctx.courante();
       const toutes = ouvert && modele.cibles(cur).length >= n;
-      for (const k of ['gauche', 'droite', 'ajouter', 'enregistrer']) b[k].disabled = !ouvert || occupe;
+      for (const k of ['gauche', 'droite', 'ajouter', 'markdown', 'enregistrer']) b[k].disabled = !ouvert || occupe;
       b.supprimer.disabled = !ouvert || occupe || toutes;
       b.supprimer.title = toutes ? 'Impossible de supprimer toutes les pages du document' : '';
       b.monter.disabled = !ouvert || occupe || cur <= 1;
@@ -54,15 +55,16 @@
     b.ajouter.addEventListener('click', () => fichier.click());
     fichier.addEventListener('change', () => { const f = fichier.files[0]; fichier.value = ''; ctx.ajouter(f); });
 
-    // Construit le PDF des pages données et le télécharge ; erreurs (bibliothèque, export) affichées
-    async function exporter(pages, suffixe) {
+    // Construit le PDF des pages données et le livre (téléchargement par défaut) ; erreurs
+    // (bibliothèque, export) affichées
+    async function exporter(pages, suffixe, livrer = MPDS.pdfExport.telecharger) {
       occupe = true; maj();
       ctx.message('Préparation du PDF…');
       try {
-        const nom = MPDS.pdfExport.nomSortie(ctx.nom(), suffixe);
+        const nom = suffixe ? MPDS.pdfExport.nomSortie(ctx.nom(), suffixe) : ctx.nom();
         const avis = [];
-        MPDS.pdfExport.telecharger(await MPDS.pdfExport.construire(pages, avis), nom);
-        ctx.message('« ' + nom + ' » enregistré.' + avis.map(a => ' ' + a).join(''));
+        livrer(await MPDS.pdfExport.construire(pages, avis), nom);
+        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + avis.map(a => ' ' + a).join(''));
         return true;
       } catch (err) {
         ctx.message('L\'export a échoué : ' + (err.message || err), true);
@@ -71,6 +73,10 @@
     }
     b.enregistrer.addEventListener('click', async () => { if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(); maj(); } });
     b.extraire.addEventListener('click', () => exporter(modele.liste.filter(p => modele.selection.has(p)), 'extrait'));
+    // Passerelle : le document tel qu'affiché (pages, annotations, formulaire) part au convertisseur,
+    // en mémoire, sous le nom d'origine (le .md portera ce nom)
+    b.markdown.addEventListener('click', () => exporter(modele.liste.slice(), '',
+      (octets, nom) => MPDS.envoyer(new File([octets], nom, { type: 'application/pdf' }), 'convertir')));
 
     return { maj };
   }
