@@ -65,7 +65,7 @@ test('PDF texte avec une page scannée : texte gardé, seule la page scannée pa
   await expect(page.locator('.journal-msg')).toHaveText('Texte extrait. Page 2 scannée : lancez l\'OCR pour la reconnaître.');
   const avant = await page.evaluate(() => resultats[0].md);
   expect(avant).toContain('Le budget est stable cette annee.');
-  expect(avant).toContain('> ⚠️ Page 2 : image sans texte (scan probable)');
+  expect(avant).toContain('> ⚠️ Page 2 : image presque sans texte (scan probable)');
 
   await page.locator('.journal-actions-item button', { hasText: 'OCR' }).click();
   await expect(page.locator('.journal-item')).toHaveClass(/ok/, { timeout: 150_000 });
@@ -129,4 +129,21 @@ test('scan dégradé (lignes douteuses majoritaires) : tout le texte est gardé'
   const r = await page.evaluate(d => { const l = lignesOcr(d); return { n: l.length, retirees: l.retirees }; },
     donneesOcr([[42, 'Le maire de la commune arrête que le stationnement'], [38, 'est interdit rue de la République.'], [90, 'Article 2']]));
   expect(r).toEqual({ n: 3, retirees: 0 });
+});
+
+// Revue PR #6 n° 2 : détection d'un scan par la part de page couverte par l'image
+test('scan avec une mention posée dessus : page scannée ; petit logo sur une page texte : page texte', async ({ page }) => {
+  await ouvrirApp(page);
+  // Mentions de plus de 20 caractères, distinctes (un texte répété sur chaque page serait pris pour un en-tête)
+  const mention = t => [{ t, x: 300, y: 60 }];
+  const md = await page.evaluate(async m => {
+    await traiterFichiers([await Fab.pdfScanne('mixte.pdf', [
+      { image: ['Courrier numerise'], mention: m[0] },                   // scan + mention
+      { image: ['Courrier numerise'], mention: m[1], forme: true },      // idem, image dans un XObject de formulaire
+      { image: ['Logo'], cm: '120 0 0 170 40 640', mention: m[2] },      // petit logo + texte court
+    ])]);
+    return __resume().resultats[0].md;
+  }, [mention('Transmis au service voirie'), mention('Transmis au service juridique'), mention('Page texte avec un petit logo')]);
+  expect(md).toContain('> ⚠️ Pages 1, 2 : image presque sans texte (scan probable)');
+  expect(md).toContain('Page texte avec un petit logo');
 });

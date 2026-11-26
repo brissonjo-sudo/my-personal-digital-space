@@ -21,6 +21,8 @@ const INTEGRITE = {
 };
 const SEUIL_ALERTE_TAILLE = 50 * 1024 * 1024; // 50 Mo
 const SEUIL_PDF_SCAN = 20;                     // moins de 20 caractères = scan probable
+// Page couverte par une image (≥ 90 %) : scan même avec un peu de texte par-dessus (tampon, mention)
+const SEUIL_SCAN_COUVERT = 200, COUVERTURE_SCAN = 0.9;
 const CONVERSIONS_MAX_PARALLELES = 4;          // fichiers convertis simultanément
 
 // Messages pour les formats refusés
@@ -413,15 +415,39 @@ const ouvrirPdf = ab => MPDS.pdfjs.ouvrir(ab);
 const OPS_IMAGE = ['paintImageXObject', 'paintInlineImageXObject', 'paintImageMaskXObject', 'paintJpegXObject',
                    'paintImageXObjectRepeat', 'paintInlineImageXObjectGroup'];
 
+// Aire couverte par les images (en points²) : une image est dessinée dans le carré unité, son aire
+// est donc |déterminant| de la matrice courante (produit des déterminants : l'ordre n'importe pas).
+// shortcut: aire approchée (chevauchements additionnés, image répétée comptée une fois), suffit pour un scan pleine page
+function aireImages({ fnArray, argsArray }, images) {
+  const O = pdfjsLib.OPS, det = m => m ? m[0] * m[3] - m[1] * m[2] : 1;
+  const pile = [];
+  let d = 1, aire = 0;
+  fnArray.forEach((f, i) => {
+    if (f === O.save) pile.push(d);
+    else if (f === O.restore) d = pile.length ? pile.pop() : 1;
+    else if (f === O.transform) d *= det(argsArray[i]);
+    else if (f === O.paintFormXObjectBegin) { pile.push(d); d *= det(argsArray[i][0]); }
+    else if (f === O.paintFormXObjectEnd) d = pile.length ? pile.pop() : 1;
+    else if (images.has(f)) aire += Math.abs(d);
+  });
+  return aire;
+}
+
 // Page PDF → { gauche, bas, haut, hauteur, lignes, scannee } dans le repère du PDF.
-// Scannée : presque pas de texte, mais une image (une page blanche n'en a pas).
+// Scannée : presque pas de texte mais une image (une page blanche n'en a pas), ou une image sur
+// toute la page avec peu de texte (tampon ou mention posés sur un scan).
 async function lirePagePdf(page) {
-  const [x0, y0, , y1] = page.view;   // boîte de la page : [x0, y0, x1, y1]
+  const [x0, y0, x1, y1] = page.view;   // boîte de la page : [x0, y0, x1, y1]
   const p = { gauche: x0, bas: Math.min(y0, y1), haut: Math.max(y0, y1), hauteur: Math.abs(y1 - y0),
               lignes: lignesPdf((await page.getTextContent()).items) };
-  const images = new Set(OPS_IMAGE.map(n => pdfjsLib.OPS[n]).filter(v => v !== undefined));
-  p.scannee = p.lignes.reduce((n, l) => n + l.texte.length, 0) < SEUIL_PDF_SCAN &&
-    (await page.getOperatorList()).fnArray.some(f => images.has(f));
+  const car = p.lignes.reduce((n, l) => n + l.texte.length, 0);
+  p.scannee = false;
+  if (car < SEUIL_SCAN_COUVERT) {
+    const images = new Set(OPS_IMAGE.map(n => pdfjsLib.OPS[n]).filter(v => v !== undefined));
+    const ops = await page.getOperatorList();
+    p.scannee = car < SEUIL_PDF_SCAN ? ops.fnArray.some(f => images.has(f))
+      : aireImages(ops, images) >= COUVERTURE_SCAN * Math.abs((x1 - x0) * (y1 - y0));
+  }
   return p;
 }
 
@@ -446,7 +472,7 @@ async function convPdf(ab, nom) {
     // Pages scannées au milieu d'un PDF texte (annexe signée, courrier numérisé)
     const scannees = pages.flatMap((p, i) => p.scannee ? [i + 1] : []);
     const note = scannees.length
-      ? [`> ⚠️ ${libellePages(scannees)} : image sans texte (scan probable). Utilisez « Reconnaître le texte (OCR) » dans le journal de conversion.`]
+      ? [`> ⚠️ ${libellePages(scannees)} : image presque sans texte (scan probable). Utilisez « Reconnaître le texte (OCR) » dans le journal de conversion.`]
       : [];
     return [`# ${baseName(nom)}`, ...note, ...blocsPages(pages)].join('\n\n') + '\n';
   } finally {
@@ -1114,7 +1140,7 @@ async function traiterUnFichier(fichier) {
     // Détecter alerte scan PDF : document entier, ou pages scannées (note de convPdf)
     const estImage = EXTENSIONS_IMAGE_OCR.has(ext);
     const toutScanne = ext === '.pdf' && md.includes('⚠️ Ce PDF semble être un scan');
-    const mixte    = ext === '.pdf' && md.match(/^> ⚠️ (Pages? [\d, ]+) : image sans texte/m);
+    const mixte    = ext === '.pdf' && md.match(/^> ⚠️ (Pages? [\d, ]+) : image presque sans texte/m);
     const estScan  = estImage || toutScanne || !!mixte;
     const resultat = { nom, nomMd: sortie.nomMd, md, images, date: dateLocale() };
     if (estScan) resultat.fichier = fichier;   // conservé pour un éventuel OCR

@@ -93,16 +93,28 @@
           `/Resources<</Font<</F1 ${police} 0 R>>>>>>`));
         continue;
       }
-      const c = canvasTexte(lignes);
+      // { image: lignes, cm, mention: [{ t, x, y }], forme } : image placée par `cm` (page entière par
+      // défaut), texte posé dessus, image enveloppée dans un XObject de formulaire
+      const opt = Array.isArray(lignes) ? { image: lignes } : lignes;
+      const c = canvasTexte(opt.image);
       const jpeg = new Uint8Array(await (await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92))).arrayBuffer());
       let octets = '';
       for (const o of jpeg) octets += String.fromCharCode(o);
       const image = ajouter(`<</Type/XObject/Subtype/Image/Width ${c.width}/Height ${c.height}/ColorSpace/DeviceRGB` +
         `/BitsPerComponent 8/Filter/DCTDecode/Length ${jpeg.length}>>\nstream\n${octets}\nendstream`);
-      const flux = 'q 595 0 0 842 0 0 cm /Im1 Do Q';
+      const dessin = `q ${opt.cm || '595 0 0 842 0 0'} cm /Im1 Do Q`;
+      let xobjet = `/Im1 ${image} 0 R`, flux = dessin;
+      if (opt.forme) {
+        const f = ajouter(`<</Type/XObject/Subtype/Form/BBox[0 0 595 842]/Resources<</XObject<</Im1 ${image} 0 R>>>>/Length ${dessin.length}>>\nstream\n${dessin}\nendstream`);
+        xobjet = `/Fm1 ${f} 0 R`; flux = 'q /Fm1 Do Q';
+      }
+      if (opt.mention) {
+        police = police || ajouter('<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>');
+        flux += '\n' + opt.mention.map(it => `BT /F1 12 Tf ${it.x} ${it.y} Td (${it.t}) Tj ET`).join('\n');
+      }
       const contenu = ajouter(`<</Length ${flux.length}>>\nstream\n${flux}\nendstream`);
       enfants.push(ajouter(`<</Type/Page/Parent ${arbre} 0 R/MediaBox[0 0 595 842]/Contents ${contenu} 0 R` +
-        `/Resources<</XObject<</Im1 ${image} 0 R>>>>>>`));
+        `/Resources<</XObject<<${xobjet}>>${police ? `/Font<</F1 ${police} 0 R>>` : ''}>>>>`));
     }
     objets[catalogue - 1] = `<</Type/Catalog/Pages ${arbre} 0 R>>`;
     objets[arbre - 1] = `<</Type/Pages/Kids[${enfants.map(n => n + ' 0 R').join(' ')}]/Count ${enfants.length}>>`;
