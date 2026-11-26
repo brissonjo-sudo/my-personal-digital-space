@@ -7,13 +7,14 @@
   const NIVEAUX = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
   const ZOOM_MIN = NIVEAUX[0], ZOOM_MAX = NIVEAUX[NIVEAUX.length - 1];
   const MARGE = 32;            // marge horizontale de la scène (2 × 1rem, voir pdf.css)
+  const MAX_PIXELS = 16777216; // plafond de pixels d'un canvas de rendu (valeur de PDF.js, maxCanvasPixels)
 
 
   let racine = null, module = null, q = null;   // section du module, son conteneur, éléments par nom
   const modele = MPDS.pdfPages.creer();          // pages affichées : [{ source, index, rotation }]
   let miniatures = null, actions = null, annot = null, formulaire = null;   // annot : annotations (outils.js)
   let page = 1, courante = null, zoom = 1, ajuste = true;   // page : position (1-based) ; courante : sa page du modèle
-  let tacheRendu = null, jetonRendu = 0, jetonOuverture = 0, tailleScene = 0;
+  let tacheRendu = null, jetonRendu = 0, jetonOuverture = 0, tailleScene = 0, erreurRendu = false;
 
   const bornes = (v, min, max) => Math.min(max, Math.max(min, v));
   const SAISIE = /^(INPUT|TEXTAREA|SELECT)$/;
@@ -59,12 +60,13 @@
       const base = p.getViewport({ scale: 1, rotation });
       if (ajuste && q.scene.clientWidth > MARGE + 50) zoom = bornes((q.scene.clientWidth - MARGE) / base.width, ZOOM_MIN, ZOOM_MAX);
       majBarre();
-      const dpr = window.devicePixelRatio || 1;
-      const vue = p.getViewport({ scale: zoom * dpr, rotation });
+      // Définition du rendu plafonnée (limite des canvas, Safari surtout) ; la taille affichée ne change pas
+      const dpr = window.devicePixelRatio || 1, echelle = Math.min(zoom * dpr, Math.sqrt(MAX_PIXELS / (base.width * base.height)));
+      const vue = p.getViewport({ scale: echelle, rotation });
       const cv = document.createElement('canvas');
       cv.id = 'pdf-canvas';
       cv.width = Math.floor(vue.width); cv.height = Math.floor(vue.height);
-      cv.style.width = Math.floor(vue.width / dpr) + 'px'; cv.style.height = Math.floor(vue.height / dpr) + 'px';
+      cv.style.width = Math.floor(base.width * zoom) + 'px'; cv.style.height = Math.floor(base.height * zoom) + 'px';
       const tache = p.render({ canvasContext: cv.getContext('2d'), viewport: vue });
       tacheRendu = tache;
       await tache.promise;
@@ -74,9 +76,13 @@
       q.scene.replaceChildren(feuille);
       formulaire.poser(feuille, entree, p, base);   // couche de saisie du formulaire (asynchrone)
       tailleScene = q.scene.clientWidth;
+      if (erreurRendu) { erreurRendu = false; message(''); }   // l'alerte d'une page illisible ne survit pas à la suivante
     } catch (err) {
       if (err && err.name === 'RenderingCancelledException') return;
-      if (mon === jetonRendu) message('Cette page ne peut pas être affichée (' + ((err && err.message) || err) + ').', true);
+      if (mon !== jetonRendu) return;
+      q.scene.replaceChildren();   // pas l'ancienne page sous le nouveau numéro
+      erreurRendu = true;
+      message('Cette page ne peut pas être affichée (' + ((err && err.message) || err) + ').', true);
     }
   }
 
@@ -135,12 +141,14 @@
     if (!new TextDecoder('latin1').decode(ab.slice(0, 1024)).includes('%PDF-')) {
       throw refus('Refus', '« ' + fichier.name + ' » n\'est pas un PDF.');
     }
-    return { nom: fichier.name, doc: await (await MPDS.pdfjs.ouvrir(ab.slice(0))).promise, octets: ab };
+    const tache = await MPDS.pdfjs.ouvrir(ab.slice(0));
+    try { return { nom: fichier.name, doc: await tache.promise, octets: ab }; }
+    catch (err) { tache.destroy().catch(() => {}); throw err; }   // sinon le worker PDF.js de la tâche reste en vie
   }
   const messageErreur = err => message(err.name === 'Refus' ? err.message : erreurPdfjs(err), true);
 
   async function ouvrir(fichier) {
-    if (!fichier || typeof fichier.arrayBuffer !== 'function') return;
+    if (!fichier || typeof fichier.arrayBuffer !== 'function') return false;
     const mon = ++jetonOuverture;
     etat(modele.liste.length ? 'pret' : 'chargement');
     message('Chargement de « ' + fichier.name + ' »…');
@@ -150,22 +158,25 @@
       if (mon !== jetonOuverture) return;
       etat(modele.liste.length ? 'pret' : 'vide');      // le document déjà ouvert reste affiché
       messageErreur(err);
-      return;
+      return false;
     }
     if (mon !== jetonOuverture || (modele.modifie && !confirm('Des modifications ne sont pas enregistrées. Ouvrir « ' + fichier.name + ' » et les perdre ?'))) {
       source.doc.destroy().catch(() => {});
       if (mon === jetonOuverture) { etat('pret'); message(''); }
-      return;
+      return false;
     }
     fermerDocument();                    // détruit l'ancien document
     modele.ouvrir(source); formulaire.detecter(source);
     page = 1; courante = modele.liste[0]; zoom = 1; ajuste = true;
     q.nom.textContent = fichier.name;
     q.outils.hidden = false;
+    const invite = document.activeElement === q.vide;
     etat('pret');
+    if (invite) q.scene.focus();          // l'invite disparaît : le focus passe à la page plutôt qu'au document
     message('');
     rafraichir();
     await afficher();
+    return true;
   }
 
   // Fusion : les pages d'un autre PDF sont ajoutées à la fin
@@ -243,8 +254,8 @@
       e.preventDefault(); survols = 0; module.classList.remove('pdf-survol');
       const fichiers = e.dataTransfer.files;
       if (!fichiers.length) return;
-      ouvrir(fichiers[0]).then(() => {
-        if (fichiers.length > 1) message('Un seul document à la fois : seul « ' + fichiers[0].name + ' » est ouvert.');
+      ouvrir(fichiers[0]).then(ok => {
+        if (ok && fichiers.length > 1) message('Un seul document à la fois : seul « ' + fichiers[0].name + ' » est ouvert.');
       });
     });
 

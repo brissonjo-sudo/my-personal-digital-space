@@ -2,6 +2,28 @@
 
 ## [Non publié]
 
+### Corrigé
+- 2026-11-26 — Correctifs issus de la revue des PR #1 à #7.
+  - **Confidentialité (bloquant)** : une page supprimée restait dans le PDF exporté quand un lien interne (`/Dest`, `/A`), un champ présent sur plusieurs pages (`/Kids`, `/P`) ou un article pointait vers elle. L'export retire ces références des pages gardées avant la copie. Les pages sont désormais copiées par référence avec un seul copieur : un lien vers une page gardée vise sa vraie copie, et non plus un doublon invisible. Garde-fou : l'export échoue si le fichier contient plus de pages que demandé.
+  - **Formulaires (bloquant)** : des cases de même nom avec des états différents (« Oui » / « Non ») cochaient toutes deux à l'écran, et l'export cochait « Oui ». La valeur d'une case ou d'un radio est maintenant le nom d'état du widget choisi, et l'export pose `/V` et l'état de chaque widget, sans passer par `/Opt`. Cela corrige aussi les radios dont les options ressemblent à des indices.
+  - **Formulaires** : le formulaire est aplati à chaque export, même sans saisie (plus de widgets orphelins ni de valeurs absentes du texte), avec un avertissement « formulaire figé ». Sans saisie, un échec d'aplatissement n'empêche plus l'export. Une case sans état « coché » dans son apparence retombe sur l'ancienne API. Chaque bouton radio, et chaque case qui partage son nom, a un libellé accessible distinct. Les libellés de liste passent par le contrôle WinAnsi.
+  - **Export** : le modèle est copié avant le premier `await`. Une modification faite pendant l'export (chargement de pdf-lib, par exemple) n'entre pas dans le fichier et l'indicateur « modifié » reste allumé. Un `/Rotate` qui n'est pas un multiple de 90 est ignoré, comme à l'affichage. Les éléments non recopiés sont signalés : signets, balisage d'accessibilité, pièces jointes, numérotation des pages, métadonnées.
+  - **Passerelle** : un PDF nommé sans `.pdf` part bien au convertisseur PDF.
+  - **Visionneuse** :
+    - la tâche PDF.js (et son worker) est détruite quand l'ouverture échoue ;
+    - la définition du canvas est plafonnée à 16,7 Mpx ;
+    - une page illisible n'affiche plus l'ancienne, et son alerte disparaît à la page suivante ;
+    - un dépôt multiple raté ne masque plus l'erreur ;
+    - le focus passe à la page quand l'invite disparaît.
+  - **Signature** : la fenêtre est focalisable, et un filet en capture empêche les touches d'atteindre le document derrière (Ctrl+Z, flèches, Échap après un clic sur la zone de dessin). L'en-tête JPEG est lu strictement (`FF 00` et octets parasites refusés), ce qui ferme le contournement du plafond de pixels. Effet de bord : un JPEG qui contient des octets parasites entre ses segments, que les décodeurs tolèrent, est désormais refusé. Un import plus récent l'emporte sur un décodage lent.
+  - **Identité** :
+    - la pastille de couleur est un disque cerclé, séparé de l'anneau de sélection, donc visible en noir sur fond sombre comme en jaune sur fond clair ;
+    - nouveau jeton `--page-err` pour les champs refusés sur la feuille blanche ;
+    - pdf-lib est précachée à part, si bien que jsDelivr bloqué ne casse plus tout le hors-ligne ;
+    - les polices sont servies en réseau d'abord ;
+    - la licence des polices est attribuée à Adobe (notices lues dans les fichiers).
+  - **Tests** : 9 tests ajoutés, chacun vérifié en échec sans son correctif.
+
 ### Ajouté
 - 2026-11-26 — pdf-lib précachée par le service worker (`mpds-v8`) : « Enregistrer le PDF » et « Convertir en Markdown » fonctionnent hors ligne dès la première visite, sans export préalable en ligne. README : la prise en charge des PDF chiffrés est décrite telle que testée (fichiers générés, pas de vrai Cerfa).
 - 2026-11-26 — Étape 8 : identité visuelle « Registre » (nom définitif : My Personal Digital Space, MPDS). **Jetons** réécrits (marine `#1b2a4a`, encre `#16213a`, rouge `#c2412d` en touche pour le module actif ; rayon 4 px) avec un thème sombre de la même famille ; deux jeux de bordures (filets décoratifs, bordures de contrôles à 3:1) ; la feuille du document reste claire dans les deux thèmes (jetons `--page*`). **Polices auto-hébergées** Source Serif 4 600 et Source Sans 3 400/600 (latin, woff2, paquets `@fontsource/*` 5.3.1, licence OFL dans `commun/polices/`), `font-display: swap`, aucune requête externe ; mises dans `PRECACHE`, cache du service worker `mpds-v7`. **Icônes** SVG au trait (`commun/icones.js`, `createElementNS`) à la place des émojis. **Rail** marine avec monogramme, Convertir et PDF, emplacements « Images » et « Texte » réservés (non interactifs, « bientôt » pour les lecteurs d'écran). **Module PDF** : en-tête (nom en serif, pages et état des modifications, navigation et zoom, Ouvrir, Convertir en Markdown, Enregistrer), bande d'outils (outils en icônes, Signature et Tampon avec libellé, palette et réglages, Annuler et Rétablir à droite), panneau « Pages » portant les actions de page ; balisage déplacé dans `modules/pdf/gabarit.js`. **Convertir** : titre « Convertir en Markdown », badge de confidentialité sobre, boutons et état du journal en icônes. Focus visible 2 px, cibles d'au moins 36 px. Tests ajoutés : `contraste.spec.js` (contrastes calculés sur les jetons, deux thèmes), `polices.spec.js` ; `tests/serveur.js` sert les `.woff2`. Tests adaptés (texte modifié par décision de design) : `coquille`, `apercu`, `images`, `theme`.

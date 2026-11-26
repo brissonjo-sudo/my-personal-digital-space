@@ -2,7 +2,8 @@
 // modèle des valeurs et couche de saisie (vrais contrôles HTML posés sur la page affichée).
 // Valeurs : `source.valeurs` (Map nom complet du champ → valeur), donc par (source, champ) : elles suivent
 // la page quand on la déplace, la pivote ou fusionne un autre PDF ; le même champ sur deux pages les partage.
-//   texte : string · case : boolean · radio : string (valeur du bouton choisi) · liste : [valeurs choisies]
+//   texte : string · case et radio : string (nom d'état « coché » du widget choisi, 'Off' : aucun) · liste : [valeurs choisies]
+// Cases de même nom (« Oui » / « Non » qui s'excluent, courant sur les Cerfa) : un seul état pour le champ.
 // Seules les valeurs saisies sont stockées ; l'export (formulaire-export.js) ne touche pas aux autres champs.
 // Noms et options viennent du fichier : textContent / value / setAttribute uniquement, jamais innerHTML.
 // Publie MPDS.pdfFormulaire.creer(ctx).
@@ -18,7 +19,9 @@
   const el = (nom, classe, parent) => { const e = document.createElement(nom); e.className = classe; if (parent) parent.append(e); return e; };
 
   // Valeur affichée quand rien n'a été saisi : celle du fichier
-  const initiale = (a, g) => g === 'case' ? a.fieldValue === a.exportValue : g === 'liste' ? (a.fieldValue || []) : (a.fieldValue || '');
+  const initiale = (a, g) => g === 'case' ? (a.fieldValue || 'Off') : g === 'liste' ? (a.fieldValue || []) : (a.fieldValue || '');
+  // Nom d'état d'un bouton, lisible : un indice (groupe avec /Opt, cas de pdf-lib) devient « option N »
+  const libelleEtat = v => /^\d+$/.test(v || '') ? 'option ' + (Number(v) + 1) : (v || '');
   const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
 
   function creer(ctx) {
@@ -76,7 +79,7 @@
       (source.valeurs || (source.valeurs = new Map())).set(nom, valeur);
       for (const c of groupe.get(nom) || []) {                      // même champ posé plusieurs fois sur la page
         if (c === origine || c.type === 'radio') continue;           // (les radios se groupent par leur nom)
-        if (c.type === 'checkbox') c.checked = valeur;
+        if (c.type === 'checkbox') c.checked = valeur === c.dataset.etat;
         else if (c.tagName === 'SELECT') for (const o of c.options) o.selected = valeur.includes(o.value);
         else c.value = valeur;
       }
@@ -104,7 +107,8 @@
       } else {
         c = document.createElement('input');
         c.type = g === 'case' ? 'checkbox' : 'radio';
-        c.checked = g === 'case' ? valeur : valeur === a.buttonValue;
+        c.checked = valeur === (g === 'case' ? a.exportValue : a.buttonValue);
+        if (g === 'case') c.dataset.etat = a.exportValue;
         c.disabled = a.readOnly;
         c.style.fontSize = h * 0.85 + 'px';   // taille de la coche
       }
@@ -125,14 +129,18 @@
         const [x0, y0, x1, y1] = a.rect, d = MPDS.pdfCoord.dePdf(info, x0, y0), f = MPDS.pdfCoord.dePdf(info, x1, y1);
         return { a, g: genre(a), x: Math.min(d.x, f.x), y: Math.min(d.y, f.y), w: Math.abs(f.x - d.x), h: Math.abs(f.y - d.y) };
       }).filter(c => c.w > 0 && c.h > 0).sort((c, d) => c.y - d.y || c.x - d.x);   // ordre de tabulation : de haut en bas
+      const homonymes = new Map();   // nombre de cases par nom
+      for (const { a, g } of posees) if (g === 'case') homonymes.set(a.fieldName, (homonymes.get(a.fieldName) || 0) + 1);
       for (const { a, g, x, y, w, h } of posees) {
         const nom = a.fieldName, valeur = source.valeurs && source.valeurs.has(nom) ? source.valeurs.get(nom) : initiale(a, g);
         const c = controle(a, g, valeur, k, h * k);
         c.classList.add('pdf-champ', 'pdf-champ-' + g);
-        c.setAttribute('aria-label', a.alternativeText || nom);
+        // boutons d'un même groupe : libellé distinct (lecteurs d'écran), suffixé de la valeur du bouton
+        const etatBouton = libelleEtat(g === 'radio' ? a.buttonValue : g === 'case' && homonymes.get(nom) > 1 ? a.exportValue : '');
+        c.setAttribute('aria-label', (a.alternativeText || nom) + (etatBouton ? ' : ' + etatBouton : ''));
         if (g === 'radio') c.name = 'pdf-' + nom;
         Object.assign(c.style, { left: x * k + 'px', top: y * k + 'px', width: w * k + 'px', height: h * k + 'px' });
-        const lire = { texte: () => c.value, case: () => c.checked, radio: () => a.buttonValue, liste: () => [...c.selectedOptions].map(o => o.value).filter(Boolean) }[g];
+        const lire = { texte: () => c.value, case: () => (c.checked ? a.exportValue : 'Off'), radio: () => a.buttonValue, liste: () => [...c.selectedOptions].map(o => o.value).filter(Boolean) }[g];
         c.addEventListener(g === 'texte' ? 'input' : 'change', () => {
           const v = lire();
           if (g === 'texte') {   // refus immédiat des caractères hors WinAnsi : le nom du champ est cité

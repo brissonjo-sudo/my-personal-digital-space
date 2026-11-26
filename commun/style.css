@@ -55,6 +55,7 @@
   --page:         #ffffff;
   --page-texte:   #16213a;
   --page-accent:  #1b2a4a;
+  --page-err:     #b3261e;   /* erreur posée sur la feuille (champ refusé) : même rouge foncé en sombre */
   --champ-fond:   #e3e8f2;
   --champ-off:    #e9ecf2;
   --champ-off-bord: #7d889e;

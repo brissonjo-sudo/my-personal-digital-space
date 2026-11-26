@@ -16,12 +16,15 @@
   // [largeur, hauteur] lues dans l'en-tête, avant tout décodage (refus des images démesurées) ; null si illisible
   function dimensions(o, type) {
     if (type === 'png') return [new DataView(o.buffer, o.byteOffset).getUint32(16), new DataView(o.buffer, o.byteOffset).getUint32(20)];
+    // Lecture stricte, segment après segment : tout octet inattendu (dont FF 00) fait refuser le fichier,
+    // sinon un en-tête piégé montrerait ici un petit SOF et au décodeur un SOF démesuré
     for (let i = 2; i + 9 < o.length;) {
-      if (o[i] !== 0xFF) { i++; continue; }
+      if (o[i] !== 0xFF) return null;
       const m = o[i + 1];
-      if (m === 0xFF) { i++; continue; }
+      if (m === 0xFF) { i++; continue; }                     // octets de remplissage
+      if (m === 0x00 || m === 0xD8 || m === 0xD9 || m === 0xDA) return null;   // pas de SOF avant les données
       if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return [(o[i + 7] << 8) | o[i + 8], (o[i + 5] << 8) | o[i + 6]];
-      i += (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) ? 2 : 2 + ((o[i + 2] << 8) | o[i + 3]);
+      i += (m === 0x01 || (m >= 0xD0 && m <= 0xD7)) ? 2 : 2 + ((o[i + 2] << 8) | o[i + 3]);
     }
     return null;
   }

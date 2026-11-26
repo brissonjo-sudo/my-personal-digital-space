@@ -29,9 +29,15 @@
     const msg = el('p', { className: 'pdf-modale-msg', role: 'alert' });
     const dire = t => { msg.textContent = t; };
     const fond = el('div', { className: 'pdf-modale-fond' });
-    const dlg = el('div', { className: 'pdf-modale', role: 'dialog' });
+    const dlg = el('div', { className: 'pdf-modale', role: 'dialog', tabIndex: -1 });   // focalisable : un clic sur le canvas y ramène le focus
     dlg.setAttribute('aria-modal', 'true'); dlg.setAttribute('aria-labelledby', 'pdf-modale-titre');
-    const fermer = () => { ouverte = false; fond.remove(); if (avant && avant.focus) avant.focus(); };
+    // Filet : une touche frappée hors de la fenêtre (focus perdu) n'atteint jamais le document derrière
+    const garde = e => {
+      if (dlg.contains(e.target)) return;
+      e.stopImmediatePropagation(); e.preventDefault();
+      if (e.key === 'Escape') fermer(); else dlg.focus();
+    };
+    const fermer = () => { ouverte = false; document.removeEventListener('keydown', garde, true); fond.remove(); if (avant && avant.focus) avant.focus(); };
     const finir = sig => { session = sig; fermer(); surValide(sig); };
 
     // ---- Onglet Dessiner ----
@@ -75,8 +81,9 @@
     apercu.setAttribute('aria-label', 'Aperçu de la signature sans fond');
     const majApercu = () => { if (source) apercu.getContext('2d').putImageData(MPDS.pdfDetourage.retirerFond(source, Number(tol.value)), 0, 0); };
     tol.addEventListener('input', majApercu);
+    let jetonImport = 0;   // un import plus récent l'emporte sur un décodage lent encore en cours
     fichier.addEventListener('change', async () => {
-      const f = fichier.files[0];
+      const f = fichier.files[0], mon = ++jetonImport;
       source = null; dire('');
       if (!f) return;
       try {
@@ -86,13 +93,14 @@
         const dim = MPDS.pdfDetourage.dimensions(o, type);
         if (!dim || !dim[0] || !dim[1] || dim[0] * dim[1] > MAX_PIXELS) throw new Error('Dimensions de l\'image illisibles ou démesurées.');
         const bmp = await createImageBitmap(new Blob([o], { type: 'image/' + type })), k = Math.min(1, MAX_COTE / Math.max(bmp.width, bmp.height));
+        if (mon !== jetonImport) { bmp.close(); return; }
         apercu.width = Math.max(1, Math.round(bmp.width * k)); apercu.height = Math.max(1, Math.round(bmp.height * k));
         const gc = apercu.getContext('2d', { willReadFrequently: true });
         gc.drawImage(bmp, 0, 0, apercu.width, apercu.height);
         bmp.close();
         source = gc.getImageData(0, 0, apercu.width, apercu.height);
         majApercu();
-      } catch (err) { dire(err.message || 'Image illisible.'); }
+      } catch (err) { if (mon === jetonImport) dire(err.message || 'Image illisible.'); }
     });
     const panImport = el('div', { role: 'tabpanel', hidden: true },
       el('label', {}, 'Image de la signature (PNG ou JPG, 10 Mo maximum) ', fichier),
@@ -148,6 +156,7 @@
     fond.addEventListener('pointerdown', e => { if (e.target === fond) e.preventDefault(); });   // un clic à côté garde le focus dans la fenêtre
     fond.append(dlg);
     document.body.append(fond);
+    document.addEventListener('keydown', garde, true);
     tabs.dessin.t.focus();
   }
 

@@ -91,7 +91,8 @@
     palette.className = 'pdf-palette'; palette.setAttribute('role', 'group'); palette.setAttribute('aria-label', 'Couleur');
     for (const [nom, hex] of COULEURS) {
       const p = document.createElement('button');
-      p.type = 'button'; p.className = 'pdf-pastille'; p.style.background = hex;
+      p.type = 'button'; p.className = 'pdf-pastille';
+      const disque = document.createElement('span'); disque.style.backgroundColor = hex; p.append(disque);   // disque cerclé : visible sur tout fond
       p.setAttribute('aria-label', 'Couleur : ' + nom); p.title = nom;
       p.addEventListener('click', () => { r.couleur = hex; choisirOutil(r.outil); });
       pastilles[hex] = p; palette.append(p);

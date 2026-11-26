@@ -114,7 +114,7 @@ test('saisie dans les contrôles, ordre de tabulation, lecture seule, maxLen', a
   await champ(page, 'nom').focus();
   const suite = [];
   for (let i = 0; i < 5; i++) { await page.keyboard.press('Tab'); suite.push(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))); }
-  expect(suite).toEqual(['adresse', 'accord', 'choix', 'ville', 'fige']);   // de haut en bas, un seul arrêt pour le groupe radio
+  expect(suite).toEqual(['adresse', 'accord', 'choix : option 1', 'ville', 'fige']);   // de haut en bas, un seul arrêt pour le groupe radio
   await expect(champ(page, 'fige')).toHaveValue('Verrouillé');
   await expect(champ(page, 'fige')).not.toBeEditable();
   await champ(page, 'adresse').fill('x'.repeat(30));
@@ -151,7 +151,6 @@ test('couche de saisie interactive avec l\'outil Sélection seulement', async ({
 
 test('export : texte accentué, formulaire aplati, case et radio visibles', async ({ page }) => {
   await ouvrir(page, await formulaire());
-  await exporter(page);   // aucune valeur saisie : copie comme avant (widgets conservés, pas de remplissage)
   await champ(page, 'nom').fill('Élodie Brégeaux');
   await champ(page, 'adresse').fill('12 rue de l\'Été');
   await champ(page, 'ville').selectOption('Besançon');
@@ -262,4 +261,48 @@ test('XFA hybride : partie XFA abandonnée, avertissement, formulaire rempli', a
   await expect(page.locator('#pdf-etat')).toContainText('XFA');
   expect((await textes(page, sortie))[0]).toContain('Hybride');
   expect(await nbChamps(sortie)).toBe(0);
+});
+
+// Revue PR #5 : cases « Oui » / « Non » de même nom (un seul champ, deux états « coché » différents,
+// courant sur les Cerfa) et radio dont les options /Opt ressemblent à des indices ('1', '2' ; états '0', '1')
+const OUI = [72, 560, 20, 20], NON = [120, 560, 20, 20], UN = [72, 480, 20, 20], DEUX = [120, 480, 20, 20];
+async function boutons() {
+  const doc = await P.PDFDocument.create(), ctx = doc.context, p1 = doc.addPage([595, 842]);
+  const flux = contenu => ctx.register(ctx.stream(contenu, { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 20, 20] }));
+  const champ = ctx.register(ctx.obj({ FT: 'Btn', T: P.PDFString.of('reponse'), V: 'Off', Kids: [] }));
+  for (const [etat, [x, y, w, h]] of [['Oui', OUI], ['Non', NON]]) {
+    const wd = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Widget', Rect: [x, y, x + w, y + h], F: 4, P: p1.ref, Parent: champ, AS: 'Off',
+      AP: { N: { [etat]: flux('0 0 0 rg 2 2 16 16 re f'), Off: flux('') } } }));
+    p1.node.addAnnot(wd); ctx.lookup(champ).lookup(P.PDFName.of('Kids')).push(wd);
+  }
+  doc.catalog.set(P.PDFName.of('AcroForm'), ctx.obj({ Fields: [champ] }));
+  const num = doc.getForm().createRadioGroup('numero');
+  num.addOptionToPage('1', p1, rect(UN)); num.addOptionToPage('2', p1, rect(DEUX));
+  return Buffer.from(await doc.save());
+}
+
+test('cases de même nom (Oui/Non) et radio /Opt numérique : l\'écran et l\'export cochent le bon bouton', async ({ page }) => {
+  await ouvrir(page, await boutons());
+  const oui = champ(page, 'reponse : Oui'), non = champ(page, 'reponse : Non');   // libellés distincts
+  await non.check();
+  await expect(non).toBeChecked(); await expect(oui).not.toBeChecked();          // elles s'excluent
+  await page.getByLabel('numero : option 2', { exact: true }).check();
+  let sortie = await exporter(page);
+  expect(await sombres(page, sortie, NON)).toBeGreaterThan(10);
+  expect(await sombres(page, sortie, OUI)).toBe(0);
+  expect(await sombres(page, sortie, DEUX)).toBeGreaterThan(10);
+  expect(await sombres(page, sortie, UN)).toBe(0);
+  await oui.check();
+  await expect(non).not.toBeChecked();
+  sortie = await exporter(page);
+  expect(await sombres(page, sortie, OUI)).toBeGreaterThan(10);
+  expect(await sombres(page, sortie, NON)).toBe(0);
+});
+
+test('export sans saisie : le formulaire est aplati quand même (plus aucun widget, valeurs du fichier figées)', async ({ page }) => {
+  await ouvrir(page, await formulaire());
+  const sortie = await exporter(page);
+  const doc = await P.PDFDocument.load(sortie), annots = doc.getPage(0).node.Annots();
+  expect(annots ? annots.size() : 0).toBe(0);
+  expect((await textes(page, sortie))[0]).toContain('Verrouillé');
 });
