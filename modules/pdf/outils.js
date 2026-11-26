@@ -5,16 +5,17 @@
 // Renvoie { poser, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
 (() => {
   'use strict';
-  const OUTILS = [['sel', 'Sélection', 'V', '↖'], ['surlig', 'Surligneur', 'H', '▬'], ['texte', 'Texte', 'T', 'T'], ['dessin', 'Dessin', 'D', '✎'], ['gomme', 'Gomme', 'E', '⌫']];
+  const OUTILS = [['sel', 'Sélection', 'V', '↖'], ['surlig', 'Surligneur', 'H', '▬'], ['texte', 'Texte', 'T', 'T'], ['dessin', 'Dessin', 'D', '✎'], ['signature', 'Signature', 'S', '✍'], ['tampon', 'Tampon', 'P', '▣'], ['gomme', 'Gomme', 'E', '⌫']];
   const COULEURS = [['Noir', '#000000'], ['Rouge', '#dc2626'], ['Bleu', '#2563eb'], ['Vert', '#16a34a'], ['Orange', '#f97316'], ['Jaune', '#facc15']];
   const POLICES = [['Helvetica', 'Helvetica'], ['TimesRoman', 'Times'], ['Courier', 'Courier']];
   const PAR_OUTIL = { surlig: '#facc15', texte: '#000000', dessin: '#dc2626' };   // couleur initiale de chaque outil
-  const REGLAGES = { surlig: ['opacite'], texte: ['police', 'taille'], dessin: ['epaisseur'] };
+  const REGLAGES = { surlig: ['opacite'], texte: ['police', 'taille'], dessin: ['epaisseur'], tampon: ['tampon', 'date'] };
+  const SIG_LARGEUR = 150;   // largeur de pose par défaut, en points PDF
   const SAISIE = /^(INPUT|TEXTAREA|SELECT)$/;
 
   function creer(ctx) {
     const { modele, barre } = ctx;
-    const r = { outil: 'sel', couleur: PAR_OUTIL.texte, police: 'Helvetica', taille: 18, epaisseur: 3, opacite: 25 };
+    const r = { outil: 'sel', couleur: PAR_OUTIL.texte, police: 'Helvetica', taille: 18, epaisseur: 3, opacite: 25, tampon: 'recu', date: MPDS.pdfTampons.dateDuJour() };
     const boutons = {}, pastilles = {}, reglages = {}, memoire = { ...PAR_OUTIL };
     let annuler = null, retablir = null;
 
@@ -39,19 +40,33 @@
       return input;
     };
 
+    // Objet à poser au prochain clic : la signature de la session (copie du modèle) ou un tampon ; null si refusé
+    function objet(outil) {
+      if (outil === 'signature') {
+        const sig = MPDS.pdfSignature.courante();
+        return sig && { type: 'signature', png: sig.url, w: SIG_LARGEUR, h: SIG_LARGEUR * sig.h / sig.w };
+      }
+      try { const t = MPDS.pdfTampons.creer(r.tampon, r.date); ctx.message(''); return t; }
+      catch (err) { ctx.message(err.message, true); return null; }
+    }
     const annotations = MPDS.pdfAnnotations.creer(modele, entree => {
       const i = modele.liste.indexOf(entree);
       if (i >= 0 && entree !== calque.entree()) ctx.aller(i + 1);   // annuler/rétablir sur une autre page : on s'y rend
       else calque.redessiner();
       maj(); ctx.majBarre();
     });
-    const calque = MPDS.pdfCalque.creer({ annotations, r, message: ctx.message });
+    const calque = MPDS.pdfCalque.creer({ annotations, r, message: ctx.message, objet });
 
     function maj() {
       annuler.disabled = !annotations.peutAnnuler();
       retablir.disabled = !annotations.peutRetablir();
     }
 
+    // Signature : la fenêtre s'ouvre d'abord ; l'outil ne s'active qu'une fois la signature validée
+    function lancer(o) {
+      if (o === 'signature') MPDS.pdfSignature.ouvrir(() => choisirOutil('signature'));
+      else choisirOutil(o);
+    }
     function choisirOutil(o) {
       if (r.outil in memoire) memoire[r.outil] = r.couleur;
       r.outil = o;
@@ -60,13 +75,14 @@
       for (const [id, p] of Object.entries(pastilles)) p.setAttribute('aria-pressed', String(id === r.couleur));
       for (const [id, l] of Object.entries(reglages)) l.hidden = !(REGLAGES[o] || []).includes(id);
       palette.hidden = !(o in memoire);
+      reglages.date.hidden = reglages.date.hidden || !MPDS.pdfTampons.CATALOGUE.find(t => t.id === r.tampon).date;
       calque.redessiner();   // le curseur et la prise des éléments dépendent de l'outil
     }
 
     // ---- Construction de la barre ----
     for (const [id, nom, touche, picto] of OUTILS) {
       boutons[id] = bouton('outil-' + id, nom, picto, `${nom} (${touche})`);
-      boutons[id].addEventListener('click', () => choisirOutil(id));
+      boutons[id].addEventListener('click', () => lancer(id));
     }
     const palette = document.createElement('span');
     palette.className = 'pdf-palette'; palette.setAttribute('role', 'group'); palette.setAttribute('aria-label', 'Couleur');
@@ -92,6 +108,11 @@
     nombre('taille', 'Taille', 6, 144, 1, 'taille', 'number');
     nombre('epaisseur', 'Épaisseur', 1, 30, 1, 'epaisseur', 'range');
     nombre('opacite', 'Opacité', 5, 100, 5, 'opacite', 'range');
+    const tampon = champ('tampon', 'Tampon', document.createElement('select'));
+    for (const t of MPDS.pdfTampons.CATALOGUE) tampon.add(new Option(t.nom, t.id));
+    tampon.addEventListener('change', () => { r.tampon = tampon.value; choisirOutil('tampon'); });
+    const date = champ('date', 'Date', Object.assign(document.createElement('input'), { type: 'text', maxLength: 10, size: 10, value: r.date }));
+    date.addEventListener('input', () => { r.date = date.value; });
     barre.append(Object.assign(document.createElement('span'), { className: 'pdf-sep' }));
     annuler = bouton('annuler', 'Annuler', '↶', 'Annuler (Ctrl+Z)');
     retablir = bouton('retablir', 'Rétablir', '↷', 'Rétablir (Ctrl+Y)');
@@ -107,7 +128,7 @@
       const outil = OUTILS.find(o => o[2].toLowerCase() === k);
       if (e.ctrlKey && k === 'z') (e.shiftKey ? annotations.retablir : annotations.annuler)();
       else if (e.ctrlKey && k === 'y') annotations.retablir();
-      else if (!e.ctrlKey && !e.shiftKey && outil) choisirOutil(outil[0]);
+      else if (!e.ctrlKey && !e.shiftKey && outil) lancer(outil[0]);
       else if (!e.ctrlKey && e.key === 'Delete') { if (!calque.supprimerSelection()) return; }
       else return;
       e.preventDefault();

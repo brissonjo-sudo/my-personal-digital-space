@@ -14,8 +14,9 @@
     if (parent) parent.append(e);
     return e;
   };
-  const geom = a => (a.pts ? { pts: a.pts } : { x: a.x, y: a.y });
-  const decaler = (g, dx, dy) => (g.pts ? { pts: g.pts.map(([x, y]) => [x + dx, y + dy]) } : { x: g.x + dx, y: g.y + dy });
+  const REDIM = ['signature', 'tampon'];   // objets posés en un clic, déplaçables et redimensionnables (proportions conservées)
+  const geom = a => (a.pts ? { pts: a.pts } : REDIM.includes(a.type) ? { x: a.x, y: a.y, w: a.w, h: a.h, ...(a.taille && { taille: a.taille }) } : { x: a.x, y: a.y });
+  const decaler = (g, dx, dy) => (g.pts ? { pts: g.pts.map(([x, y]) => [x + dx, y + dy]) } : { ...g, x: g.x + dx, y: g.y + dy });
   const trace = { fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
 
   function creer(ctx) {
@@ -29,7 +30,7 @@
       return { x: (e.clientX - b.left) * v.width / b.width, y: (e.clientY - b.top) * v.height / b.height, k: b.width / v.width };
     };
 
-    function formeDe(a) {
+    function formeDe(a, poignee) {
       const g = el('g', { class: 'pdf-annot', 'data-id': a.id, 'data-type': a.type });
       if (a.type === 'surlig') {
         const p = ve(a.x, a.y), q = ve(a.x + a.w, a.y + a.h);
@@ -38,6 +39,16 @@
         const p = ve(a.x, a.y);   // rotation nette = rotation affichée − angle de lecture : 0 tant que la page n'est pas repivotée
         const t = el('text', { x: p.x, y: p.y, 'font-size': a.taille, 'font-family': FAMILLES[a.police] || FAMILLES.Helvetica, fill: a.couleur, transform: `rotate(${info.rotation - a.angle} ${p.x} ${p.y})`, style: 'white-space: pre' }, g);
         t.textContent = a.texte;
+      } else if (REDIM.includes(a.type)) {   // repère local : origine au coin bas-gauche, tourné comme le texte
+        const p = ve(a.x, a.y);
+        const l = el('g', { transform: `translate(${p.x} ${p.y}) rotate(${info.rotation - a.angle})` }, g);
+        el('rect', { x: 0, y: -a.h, width: a.w, height: a.h, fill: '#000', 'fill-opacity': 0 }, l);   // zone de saisie (pixels transparents compris)
+        if (a.type === 'signature') el('image', { href: a.png, x: 0, y: -a.h, width: a.w, height: a.h, preserveAspectRatio: 'none' }, l);
+        else MPDS.pdfTampons.dessiner(a, l, el);
+        if (poignee) {   // coin haut-droit ; taille constante à l'écran quel que soit le zoom
+          const k = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width || 1, c = 5 / k;
+          el('rect', { class: 'pdf-poignee', x: a.w - c, y: -a.h - c, width: 2 * c, height: 2 * c, transform: `rotate(${-(a.incl || 0)} ${a.w / 2} ${-a.h / 2})` }, l);
+        }
       } else {
         const points = a.pts.map(([x, y]) => { const p = ve(x, y); return p.x + ',' + p.y; }).join(' ');
         el('polyline', { ...trace, points, stroke: 'transparent', 'stroke-width': Math.max(a.epaisseur, 12) }, g);   // zone de saisie élargie
@@ -52,10 +63,11 @@
       svg.dataset.outil = r.outil;
       if (selection && !entree.annots.includes(selection)) selection = null;
       for (const a of entree.annots) {
-        const g = formeDe(a);
+        const g = formeDe(a, false);
         svg.append(g);
         if (a === selection) {
           const b = g.getBBox();
+          if (REDIM.includes(a.type)) { g.remove(); svg.append(formeDe(a, true)); }
           el('rect', { x: b.x - 3, y: b.y - 3, width: b.width + 6, height: b.height + 6, class: 'pdf-contour' }, svg);
         }
       }
@@ -112,6 +124,13 @@
       if (e.button !== 0 || editeur) return;   // zone de saisie ouverte : sa perte de focus valide
       const p = pt(e), o = r.outil, g = e.target.closest('[data-id]');
       const a = g ? entree.annots.find(x => x.id === +g.dataset.id) : null;
+      if (o === 'sel' && selection && e.target.classList.contains('pdf-poignee')) {   // poignée d'angle : agrandir / réduire
+        const b = e.target.getBoundingClientRect(), h = pt({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
+        const c = ve(selection.x, selection.y);
+        geste = { type: 'redim', a: selection, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
+        svg.setPointerCapture(e.pointerId);
+        return;
+      }
       if (o === 'gomme') { if (a) ctx.annotations.supprimer(entree, a); return; }
       if (o === 'sel') {
         selection = a || null;
@@ -124,7 +143,12 @@
     function bouge(e) {
       if (!geste) return;
       const p = pt(e), d = geste.depart;
-      if (geste.type === 'dep') {
+      if (geste.type === 'redim') {   // facteur = distance du pointeur au coin fixe / distance initiale de la poignée
+        const av = geste.avant, k = Math.min(1500 / av.w, Math.max(8 / av.w, Math.hypot(p.x - geste.c.x, p.y - geste.c.y) / geste.d0));
+        Object.assign(geste.a, { w: av.w * k, h: av.h * k, ...(av.taille && { taille: av.taille * k }) });
+        geste.bouge = true;
+        redessiner();
+      } else if (geste.type === 'dep') {
         const a0 = vp(d.x, d.y), a1 = vp(p.x, p.y);
         Object.assign(geste.a, decaler(geste.avant, a1.x - a0.x, a1.y - a0.y));
         geste.bouge = true;
@@ -142,12 +166,21 @@
       }
     }
 
+    // Pose un objet (signature, tampon) centré sur le point cliqué ; ctx.objet() le fabrique (ou renvoie null en signalant l'erreur)
+    function poser1(p) {
+      const o = ctx.objet(r.outil);
+      if (!o) return;
+      const c = vp(p.x - o.w / 2, p.y + o.h / 2);
+      ctx.annotations.ajouter(entree, { ...o, x: c.x, y: c.y, angle: ((info.rotation % 360) + 360) % 360 });
+    }
+
     function fin() {
       const g = geste;
       geste = null;
       if (!g) return;
       if (g.el) g.el.remove();
-      if (g.type === 'dep') { if (g.bouge) ctx.annotations.deplacer(entree, g.a, g.avant, geom(g.a)); }
+      if (g.type === 'dep' || g.type === 'redim') { if (g.bouge) ctx.annotations.deplacer(entree, g.a, g.avant, geom(g.a)); }
+      else if (REDIM.includes(g.type)) poser1(g.depart);
       else if (g.type === 'texte') ouvrirEditeur(g.depart);   // à la fin du clic : le focus donné à l'appui serait repris
       else if (g.type === 'surlig') {
         const a = vp(g.depart.x, g.depart.y), b = vp(g.fin.x, g.fin.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);

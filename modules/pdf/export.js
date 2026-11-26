@@ -31,6 +31,11 @@
         if (!polices.has(nom)) polices.set(nom, await sortie.embedFont(StandardFonts[nom]));
         // verifier() : le fork remplace sinon en silence un caractère hors WinAnsi par « ? »
         c.drawText(MPDS.pdfTexte.verifier(a.texte), { x: a.x, y: a.y, size: a.taille, font: polices.get(nom), color, rotate: degrees(a.angle || 0) });
+      } else if (a.type === 'signature') {   // PNG transparent : une seule incorporation par image, même posée plusieurs fois
+        if (!polices.has(a.png)) polices.set(a.png, await sortie.embedPng(a.png));
+        c.drawImage(polices.get(a.png), { x: a.x, y: a.y, width: a.w, height: a.h, rotate: degrees(a.angle || 0) });
+      } else if (a.type === 'tampon') {
+        await MPDS.pdfTampons.aplatir(PDFLib, sortie, c, a, polices, color);
       } else if (a.type === 'dessin') {
         for (let i = 1; i < a.pts.length; i++) {
           c.drawLine({ start: { x: a.pts[i - 1][0], y: a.pts[i - 1][1] }, end: { x: a.pts[i][0], y: a.pts[i][1] }, thickness: a.epaisseur, color, lineCap: LineCapStyle.Round });
