@@ -19,7 +19,7 @@
     const { modele, barre } = ctx;
     const r = { outil: 'sel', couleur: PAR_OUTIL.texte, police: 'Helvetica', taille: 18, epaisseur: 3, opacite: 25, tampon: 'recu', date: MPDS.pdfTampons.dateDuJour() };
     const boutons = {}, pastilles = {}, reglages = {}, memoire = { ...PAR_OUTIL };
-    let annuler = null, retablir = null;
+    let annuler = null, retablir = null, dateAuto = r.date;   // dernière date posée d'office (date du jour)
 
     const bouton = (id, libelle, icone, titre) => {
       const b = document.createElement('button');
@@ -69,6 +69,8 @@
       else choisirOutil(o);
     }
     function choisirOutil(o) {
+      // Tampon : une date laissée d'office suit le jour (PWA ouverte après minuit) ; une date saisie est gardée
+      if (o === 'tampon' && r.date === dateAuto) { r.date = dateAuto = MPDS.pdfTampons.dateDuJour(); date.value = r.date; }
       if (r.outil in memoire) memoire[r.outil] = r.couleur;
       r.outil = o;
       if (o in memoire) r.couleur = memoire[o];

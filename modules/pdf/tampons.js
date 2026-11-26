@@ -30,7 +30,12 @@
     const m = CATALOGUE.find(c => c.id === id);
     if (!m) throw new Error('Tampon inconnu.');
     const d = String(date || '').trim();
-    if (m.date && !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) throw new Error('Date attendue au format JJ/MM/AAAA.');
+    if (m.date) {
+      const [, j, mo, a] = (/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d) || []).map(Number);
+      if (!a) throw new Error('Date attendue au format JJ/MM/AAAA.');
+      const v = new Date(a, mo - 1, j);   // aller-retour : « 31/02 » deviendrait le 3 mars, « 00/00 » l'année 1899
+      if (v.getFullYear() !== a || v.getMonth() !== mo - 1 || v.getDate() !== j) throw new Error('Date inexistante : ' + d + ' (JJ/MM/AAAA).');
+    }
     const texte = MPDS.pdfTexte.verifier((m.nom + (m.date ? ' ' + d : '')).toLocaleUpperCase('fr-FR'));   // vérifié APRÈS la capitalisation (« µ » → « Μ » grec)
     return { type: 'tampon', texte, couleur: m.couleur, taille, w: mesure(texte, taille) + taille * 1.2, h: taille * 1.5, incl: 8 };
   }

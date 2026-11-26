@@ -432,3 +432,61 @@ test('image JPEG : en-tête piégé (FF 00) refusé, en-tête normal lu', async 
   });
   expect(r).toEqual({ normal: [200, 100], piege: null, bruit: null });
 });
+
+// ---- Revue PR #4 (n° 5) : date du tampon ----
+test('tampon : date inexistante refusée (31/02, 00/00)', async ({ page }) => {
+  await ouvrir(page);
+  await bouton(page, 'Tampon (P)').click();
+  for (const d of ['31/02/2026', '00/00/2026', '29/02/2025']) {
+    await page.locator('#pdf-date').fill(d);
+    await cliquer(page, 300, 300);
+    await expect(page.locator('#pdf-etat')).toContainText('Date inexistante');
+  }
+  await expect(annots(page, 'tampon')).toHaveCount(0);
+  await page.locator('#pdf-date').fill('29/02/2028');   // bissextile
+  await cliquer(page, 300, 300);
+  await expect(annots(page, 'tampon')).toHaveCount(1);
+});
+
+test('tampon : la date d\'office suit le jour (après minuit), une date saisie est gardée', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 10, 26, 23, 58));
+  await ouvrirApp(page);
+  await ouvrir(page);
+  await bouton(page, 'Tampon (P)').click();
+  await expect(page.locator('#pdf-date')).toHaveValue('26/11/2026');
+  await bouton(page, 'Sélection (V)').click();
+  await page.clock.setFixedTime(new Date(2026, 10, 27, 0, 3));
+  await bouton(page, 'Tampon (P)').click();
+  await expect(page.locator('#pdf-date')).toHaveValue('27/11/2026');
+  await page.locator('#pdf-date').fill('01/12/2026');
+  await bouton(page, 'Sélection (V)').click();
+  await page.clock.setFixedTime(new Date(2026, 10, 28, 9, 0));
+  await bouton(page, 'Tampon (P)').click();
+  await expect(page.locator('#pdf-date')).toHaveValue('01/12/2026');
+});
+
+// ---- Revue PR #4 (n° 6) : orientation de la signature exportée, 90/180/270° ----
+for (const R of [90, 180, 270]) {
+  test(`signature asymétrique sur page pivotée à ${R}° : orientation exportée`, async ({ page }) => {
+    await ouvrir(page);
+    for (let i = 0; i < R / 90; i++) await bouton(page, 'Pivoter à droite').click();
+    await page.waitForFunction(r => document.querySelector('.pdf-calque').viewBox.baseVal.width > (r % 180 ? 800 : 500), R);
+    await pret(page);
+    await ouvrirModale(page);
+    await tracer(page, [[0.1, 0.15], [0.9, 0.15]]);          // trait en haut, toute la largeur
+    await tracer(page, [[0.1, 0.85], [0.18, 0.85]]);         // marque en bas à gauche seulement
+    await bouton(page, 'Valider').click();
+    await cliquer(page, 400, 300);
+    // Boîte de la signature à l'écran, en unités du calque (= rendu PDF.js de la page exportée à l'échelle 1)
+    const b = await page.evaluate(() => {
+      const s = document.querySelector('.pdf-calque'), c = s.getBoundingClientRect(), k = s.viewBox.baseVal.width / c.width, i = s.querySelector('image').getBoundingClientRect();
+      return { x: (i.left - c.left) * k, y: (i.top - c.top) * k, w: i.width * k, h: i.height * k };
+    });
+    const o = await exporter(page);
+    expect(await rotations(page, o)).toEqual([R]);
+    const [hautMilieu, basGauche, basDroite] = await sombres(page, o, [[b.x + b.w / 2, b.y + b.h * 0.1], [b.x + b.w * 0.06, b.y + b.h * 0.9], [b.x + b.w * 0.85, b.y + b.h * 0.9]], 4);
+    expect(hautMilieu, 'trait du haut').toBeLessThan(300);
+    expect(basGauche, 'marque en bas à gauche').toBeLessThan(300);
+    expect(basDroite, 'rien en bas à droite').toBeGreaterThan(700);
+  });
+}
