@@ -368,12 +368,18 @@ test('champ à cases : une lettre par case à l\'écran, sans défilement une fo
     r.style.font = s.font; r.textContent = '0'; document.body.append(r);
     const ch = r.getBoundingClientRect().width; r.remove();
     const cases = parseFloat(e.style.getPropertyValue('--cases'));
-    return { cel: cases / e.maxLength, ch, ls: parseFloat(s.letterSpacing), pg: parseFloat(s.paddingLeft), dl: e.scrollLeft, deborde: e.scrollWidth - e.clientWidth };
+    return { cel: cases / e.maxLength, ch, ls: parseFloat(s.letterSpacing), pg: parseFloat(s.paddingLeft), dl: e.scrollLeft, deborde: e.scrollWidth - e.clientWidth, fond: s.backgroundColor };
   });
+  expect(m.fond).toBe('rgba(0, 0, 0, 0)');          // les cases dessinées par le PDF restent visibles
   expect(m.ch + m.ls).toBeCloseTo(m.cel, 0);        // pas d'une lettre = largeur d'une case
   expect(m.pg * 2).toBeCloseTo(m.ls, 0);           // lettre centrée dans sa case
   expect(m.dl).toBe(0);                            // plein, curseur au bout : rien ne défile
   expect(m.deborde).toBeLessThanOrEqual(0);
   const octets = await exporter(page);
   expect((await textes(page, octets))[0].replace(/\s/g, '')).toContain('12345678901234');
+  // page pivotée à 90° : le champ est vertical à l'écran, affichage ordinaire (texte lisible)
+  await bouton(page, 'Pivoter à droite').click();
+  await expect(champ(page, 'siret')).not.toHaveClass(/pdf-champ-cases/);
+  await expect(champ(page, 'siret')).toHaveValue('12345678901234');
+  expect(parseFloat(await champ(page, 'siret').evaluate(e => getComputedStyle(e).fontSize))).toBeGreaterThan(8);
 });

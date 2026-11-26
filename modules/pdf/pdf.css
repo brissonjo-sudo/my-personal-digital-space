@@ -167,7 +167,7 @@
    cases, fond translucide : les cases dessinées par le PDF restent visibles sous les lettres */
 .pdf-champ.pdf-champ-cases {
   --fond: color-mix(in srgb, var(--champ-fond) 55%, transparent); --trait: var(--page-accent); --ep: 1px;
-  border: 0; padding-right: 0; font-family: "Courier New", Courier, monospace; background-repeat: no-repeat;
+  border: 0; padding-right: 0; font-family: "Courier New", Courier, monospace; background-color: transparent; background-repeat: no-repeat;
   background-image: linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--trait), var(--trait)),
     linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--trait), var(--trait)), linear-gradient(var(--fond), var(--fond));
   background-size: var(--cases) var(--ep), var(--cases) var(--ep), var(--ep) 100%, var(--ep) 100%, var(--cases) 100%;

@@ -167,7 +167,8 @@
         c.setAttribute('aria-label', (a.alternativeText || nom) + (etatBouton ? ' : ' + etatBouton : ''));
         if (g === 'radio') c.name = 'pdf-' + nom;
         Object.assign(c.style, { left: x * k + 'px', top: y * k + 'px', width: w * k + 'px', height: h * k + 'px' });
-        if (g === 'texte' && a.comb) cases(c, w * k, h * k, a.maxLen);
+        // page pivotée : à 90/270° le champ est vertical à l'écran, à 180° ses cases se lisent de droite à gauche
+        if (g === 'texte' && a.comb && info.rotation % 360 === 0) cases(c, w * k, h * k, a.maxLen);
         const lire = { texte: () => c.value, case: () => (c.checked ? a.exportValue : 'Off'), radio: () => a.buttonValue, liste: () => [...c.selectedOptions].map(o => o.value).filter(Boolean) }[g];
         c.addEventListener(g === 'texte' ? 'input' : 'change', () => {
           const v = lire();
