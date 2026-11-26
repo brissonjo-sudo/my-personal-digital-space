@@ -64,7 +64,7 @@
       try {
         const nom = suffixe ? MPDS.pdfExport.nomSortie(ctx.nom(), suffixe) : ctx.nom();
         const avis = [];
-        livrer(await MPDS.pdfExport.construire(pages, avis), nom);
+        livrer(await MPDS.pdfExport.construire(pages, avis), nom, avis);
         ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + avis.map(a => ' ' + a).join(''));
         return true;
       } catch (err) {
@@ -81,7 +81,8 @@
     // en mémoire, sous le nom d'origine (le .md portera ce nom)
     b.markdown.addEventListener('click', () => exporter(modele.liste.slice(), '',
       // le convertisseur choisit d'après l'extension : un PDF nommé « Scan_0001 » ou « x.txt » doit finir en .pdf
-      (octets, nom) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir')));
+      // les avis (formulaire figé, XFA abandonné…) suivent le fichier : le module PDF est masqué à l'envoi
+      (octets, nom, avis) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir', { avis })));
 
     return { maj };
   }

@@ -2,6 +2,7 @@
 // comprises) est remis en mémoire au module Convertir, sous son nom d'origine.
 'use strict';
 
+const P = require('@cantoo/pdf-lib');
 const { test, expect, ouvrirApp } = require('./aide');
 
 test.beforeEach(async ({ page }) => { await ouvrirApp(page); });
@@ -69,4 +70,21 @@ test('scan tamponné : la page reste un scan et l\'OCR est proposé', async ({ p
   await page.locator('.journal-actions-item button', { hasText: 'OCR' }).click();
   await expect(page.locator('.journal-item').last()).toHaveClass(/ok/, { timeout: 100_000 });
   expect(await page.evaluate(() => resultats[resultats.length - 1].md)).toContain('Courrier de la voirie');   // lu par l'OCR
+});
+
+// Revue PR #6 n° 3 : les avertissements de l'export suivent le fichier dans le journal de Convertir
+test("avertissements de l'export (formulaire figé) visibles dans le journal de Convertir", async ({ page }) => {
+  const doc = await P.PDFDocument.create(), p = doc.addPage([595, 842]);
+  p.drawText('Demande de permis', { x: 72, y: 760, size: 18 });
+  const f = doc.getForm().createTextField('nom'); f.setText('Dupont'); f.addToPage(p, { x: 72, y: 700, width: 200, height: 20 });
+  const octets = Buffer.from(await doc.save());
+  await page.evaluate(o => MPDS.envoyer(new File([new Uint8Array(o)], 'permis.pdf'), 'pdf'), [...octets]);
+  await expect(page.locator('#pdf-canvas')).toBeVisible();
+  await bouton(page).click();
+  await page.waitForFunction(() => MPDS.actif() === 'convertir' && __resume().journal.length === 1 && __resume().journal[0].statut !== 'en-cours');
+  const r = await page.evaluate(() => __resume());
+  expect(r.journal[0].statut).toBe('ok');
+  expect(r.journal[0].msg).toContain('Converti → permis.md');
+  expect(r.journal[0].msg).toContain('Le formulaire de « permis.pdf » est figé');
+  expect(r.resultats[0].md).toContain('Dupont');   // valeur du fichier figée, donc convertie
 });
