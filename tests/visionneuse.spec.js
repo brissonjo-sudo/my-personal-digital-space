@@ -291,7 +291,7 @@ test('zoom : ←/→ font défiler la scène horizontalement, PageDown change de
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect(numero(page)).toHaveValue('1');
-  expect(await page.evaluate(() => document.getElementById('pdf-scene').scrollLeft)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => document.getElementById('pdf-scene').scrollLeft)).toBeGreaterThan(0);   // défilement doux : asynchrone
   await page.keyboard.press('PageDown');
   await expect(numero(page)).toHaveValue('2');
 });

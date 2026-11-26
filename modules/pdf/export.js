@@ -81,7 +81,8 @@
   // pages : [{ source, index, rotation, annots? }] → Uint8Array d'un nouveau PDF ; avis : reçoit les avertissements.
   // Tout est copié avant le premier await : une modification faite pendant l'export (chargement de
   // pdf-lib…) ne change pas le fichier en cours de construction.
-  async function construire(pages, avis = []) {
+  // avisFichier : avertissements qui ne concernent que le fichier PDF (par défaut avec les autres)
+  async function construire(pages, avis = [], avisFichier = avis) {
     pages = pages.map(p => ({ source: p.source, index: p.index, rotation: p.rotation, annots: structuredClone(p.annots || []) }));
     const valeurs = new Map(pages.map(p => [p.source, new Map(p.source.valeurs || [])]));
     const { PDFDocument, PDFDict, PDFName, PDFObjectCopier, PDFPage, degrees } = await bibliotheque();
@@ -98,7 +99,7 @@
       } catch (err) {
         throw new Error('« ' + src.nom + ' » ne peut pas être relu pour l\'export (' + err.message + ').');
       }
-      MPDS.pdfFormulaireExport.remplir(lecteur, src, valeurs.get(src), avis);   // formulaire rempli puis aplati
+      MPDS.pdfFormulaireExport.remplir(lecteur, src, valeurs.get(src), avis, avisFichier);   // formulaire rempli puis aplati
       const miennes = pages.filter(p => p.source === src);
       isoler(lecteur, miennes.map(p => p.index));
       const cat = lecteur.catalog;
@@ -128,7 +129,7 @@
     const TYPE = PDFName.of('Type');
     const n = sortie.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFDict && String(o.get(TYPE)) === '/Page').length;
     if (n !== pages.length) throw new Error('le fichier contiendrait ' + n + ' pages au lieu de ' + pages.length + ' (référence vers une page retirée).');
-    if (perdus.size) { const l = [...perdus]; avis.push('Non conservés dans le fichier exporté : ' + (l.length > 1 ? l.slice(0, -1).join(', ') + ' et ' : '') + l[l.length - 1] + '.'); }
+    if (perdus.size) { const l = [...perdus]; avisFichier.push('Non conservés dans le fichier exporté : ' + (l.length > 1 ? l.slice(0, -1).join(', ') + ' et ' : '') + l[l.length - 1] + '.'); }
     return sortie.save();
   }
 

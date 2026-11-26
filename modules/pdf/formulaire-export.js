@@ -35,14 +35,15 @@
     else throw new Error('type de champ non pris en charge');
   }
 
-  // lecteur : PDFDocument de la source ; valeurs : Map nom → valeur saisie ; avis : avertissements.
+  // lecteur : PDFDocument de la source ; valeurs : Map nom → valeur saisie ; avis : avertissements sur le
+  // contenu ; avisFichier : ceux qui ne concernent que le fichier PDF (non transmis à la passerelle).
   // Tout formulaire est aplati, même sans saisie : sinon ses widgets seraient copiés sans AcroForm
   // (orphelins, encore modifiables dans certains lecteurs) et les valeurs déjà présentes perdues au texte.
-  function remplir(lecteur, src, valeurs, avis) {
+  function remplir(lecteur, src, valeurs, avis, avisFichier = avis) {
     const { PDFName } = PDFLib;
     if (!lecteur.catalog.has(PDFName.of('AcroForm'))) return;
     if (!valeurs.size) {   // sans saisie, un formulaire mal formé ne doit pas empêcher l'export du document
-      try { if (aplatir(lecteur.getForm(), src, avis)) avis.push('Le formulaire de « ' + src.nom + ' » est figé dans le fichier exporté : ses champs n\'y sont plus modifiables.'); }
+      try { if (aplatir(lecteur.getForm(), src, avis)) avisFichier.push('Le formulaire de « ' + src.nom + ' » est figé dans le fichier exporté : ses champs n\'y sont plus modifiables.'); }
       catch (err) { avis.push('Le formulaire de « ' + src.nom + ' » n\'a pas pu être figé (' + (err.message || err) + ') : ses champs sont copiés tels quels.'); }
       return;
     }
@@ -61,6 +62,16 @@
   // Aplatit comme PDFForm.flatten du fork, dont il reprend la boucle (2.11.1, figée par SRI : les méthodes
   // internes ne changent pas sans changer l'empreinte), mais signale les champs dont un widget n'a pas pu
   // être figé (page introuvable, apparence absente) : le fork les retire en silence. Vrai s'il y avait des champs.
+  // Le widget montrait-il quelque chose ? Non : sur aucune page, signature vide, case ou bouton radio
+  // non choisi (le fork lève alors une erreur sans rien perdre : état « Off » absent de l'apparence)
+  function montrait(form, champ, w) {
+    const { PDFSignature, PDFCheckBox, PDFRadioGroup } = PDFLib;
+    try { form.findWidgetPage(w); } catch { return false; }
+    if (champ instanceof PDFSignature) return false;
+    if (champ instanceof PDFCheckBox || champ instanceof PDFRadioGroup) return !!w.getOnValue() && champ.acroField.getValue() === w.getOnValue();
+    return true;
+  }
+
   function aplatir(form, src, avis) {
     const champs = form.getFields();
     if (!champs.length) return false;
@@ -69,7 +80,7 @@
     for (const champ of champs) {
       for (const w of champ.acroField.getWidgets()) {
         try { form.flattenWidgetOntoPage(form.findWidgetPage(w), w, form.findWidgetAppearanceRef(champ, w)); }
-        catch { perdus.add(champ.getName()); }
+        catch { if (montrait(form, champ, w)) perdus.add(champ.getName()); }
       }
       form.removeField(champ);
     }

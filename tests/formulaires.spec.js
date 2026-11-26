@@ -313,27 +313,41 @@ test('ordre de tabulation par rangées : gauche puis droite sur une ligne, même
   form.createTextField('ligne1-gauche').addToPage(p, rect([72, 700, 150, 16]));    // haut à l'écran : 126
   form.createTextField('ligne1-droite').addToPage(p, rect([300, 698, 150, 30]));   // haut à l'écran : 114 (plus haut)
   form.createTextField('ligne2').addToPage(p, rect([72, 640, 150, 16]));
+  // Grand champ à droite qui descend jusqu'à la ligne suivante : il ne doit pas la happer
+  form.createTextField('court').addToPage(p, rect([72, 560, 150, 16]));     // écran 266–282
+  form.createTextField('grand').addToPage(p, rect([300, 500, 150, 80]));    // écran 262–342
+  form.createTextField('suivant').addToPage(p, rect([72, 520, 150, 16]));   // écran 306–322, à côté du bas de « grand »
   await ouvrir(page, Buffer.from(await doc.save()));
   await champ(page, 'ligne1-gauche').focus();
   await page.keyboard.press('Tab');
   expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne1-droite');
   await page.keyboard.press('Tab');
   expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne2');
-  await page.keyboard.press('Shift+Tab');
-  await page.keyboard.press('Shift+Tab');
-  expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe('ligne1-gauche');
+  const suite = [];
+  for (let i = 0; i < 3; i++) { await page.keyboard.press('Tab'); suite.push(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))); }
+  expect(suite).toEqual(['court', 'grand', 'suivant']);
 });
 
-// Revue PR #5 n° 6 : un widget impossible à figer (sur aucune page) n'est plus retiré en silence
-test('champ impossible à figer : signalé par un avertissement à l\'export', async ({ page }) => {
-  const doc = await P.PDFDocument.create(), p = doc.addPage([595, 842]), form = doc.getForm();
+// Revue PR #5 n° 6 : un widget impossible à figer n'est plus retiré en silence, s'il montrait quelque chose
+test('champ impossible à figer : signalé s\'il montrait un contenu ; échecs sans contenu muets', async ({ page }) => {
+  const doc = await P.PDFDocument.create(), p = doc.addPage([595, 842]), form = doc.getForm(), N = P.PDFName.of;
   form.createTextField('visible').addToPage(p, rect([72, 700, 200, 20]));
-  const perdu = form.createTextField('orphelin');
-  perdu.addToPage(p, rect([72, 600, 200, 20])); perdu.setText('Valeur du fichier');
-  const w = perdu.acroField.getWidgets()[0], ref = doc.context.getObjectRef(w.dict);
-  p.node.removeAnnot(ref); w.dict.delete(P.PDFName.of('P'));   // widget rattaché à aucune page
-  await ouvrir(page, Buffer.from(await doc.save()), 'orphelin.pdf');
+  const cible = form.createTextField('cible'); cible.addToPage(p, rect([72, 660, 200, 20])); cible.setText('Valeur du fichier');
+  const sig = doc.context.register(doc.context.obj({ Type: 'Annot', Subtype: 'Widget', FT: 'Sig', T: P.PDFString.of('signature'), Rect: [72, 300, 272, 350], F: 4, P: p.ref }));
+  p.node.addAnnot(sig); form.acroForm.addField(sig);   // signature vide, sans apparence : le fork lève une erreur, rien n'est perdu
+  const hors = form.createTextField('hors-page'); hors.addToPage(p, rect([72, 500, 200, 20])); hors.setText('x');
+  const w = hors.acroField.getWidgets()[0];
+  p.node.removeAnnot(doc.context.getObjectRef(w.dict)); w.dict.delete(N('P'));   // sur aucune page : jamais affiché
+  await ouvrir(page, Buffer.from(await doc.save()), 'etats.pdf');
   await champ(page, 'visible').fill('Saisi');
   await exporter(page);
-  await expect(page.locator('#pdf-etat')).toContainText('Champ « orphelin » de « orphelin.pdf » non figé : retiré du fichier exporté.');
+  await expect(page.locator('#pdf-etat')).not.toContainText('non figé');   // échecs sans contenu : muets
+  // Panne simulée du fork sur un champ qui montre une valeur (apparence introuvable) : signalée
+  await page.evaluate(() => {
+    const f = PDFLib.PDFForm.prototype.findWidgetAppearanceRef;
+    PDFLib.PDFForm.prototype.findWidgetAppearanceRef = function (champ, w) { if (champ.getName() === 'cible') throw new Error('panne'); return f.call(this, champ, w); };
+  });
+  await exporter(page);
+  await expect(page.locator('#pdf-etat')).toContainText('Champ « cible » de « etats.pdf » non figé : retiré du fichier exporté.');
+  await expect(page.locator('#pdf-etat')).not.toContainText('« signature »');
 });

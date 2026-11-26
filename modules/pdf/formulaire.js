@@ -115,15 +115,18 @@
       return c;
     }
 
-    // Ordre de lecture par rangées : un champ qui recouvre la rangée courante sur plus de la moitié de la
-    // plus petite hauteur la rejoint (champs de hauteurs différentes sur une même ligne) ; rangées de haut
-    // en bas, champs de gauche à droite dans chaque rangée
+    // Ordre de lecture par rangées : un champ qui recouvre la bande de la rangée sur plus de la moitié de
+    // la plus petite des deux hauteurs la rejoint (champs de hauteurs différentes sur une même ligne). La
+    // bande est celle du champ le moins haut de la rangée : un grand champ ne happe pas la ligne suivante.
+    // Rangées de haut en bas, champs de gauche à droite dans chaque rangée
     function ordreLecture(cs) {
       const rangees = [];
       for (const c of [...cs].sort((a, b) => a.y - b.y)) {
         const r = rangees[rangees.length - 1];
-        if (r && Math.min(r.bas, c.y + c.h) - c.y > Math.min(r.hmin, c.h) / 2) { r.cs.push(c); r.bas = Math.max(r.bas, c.y + c.h); r.hmin = Math.min(r.hmin, c.h); }
-        else rangees.push({ cs: [c], bas: c.y + c.h, hmin: c.h });
+        if (r && Math.min(r.bas, c.y + c.h) - Math.max(r.haut, c.y) > Math.min(r.h, c.h) / 2) {
+          r.cs.push(c);
+          if (c.h < r.h) Object.assign(r, { haut: c.y, bas: c.y + c.h, h: c.h });
+        } else rangees.push({ cs: [c], haut: c.y, bas: c.y + c.h, h: c.h });
       }
       return rangees.flatMap(r => r.cs.sort((a, b) => a.x - b.x));
     }
