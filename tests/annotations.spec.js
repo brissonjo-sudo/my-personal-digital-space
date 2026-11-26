@@ -449,3 +449,96 @@ test('pastille de couleur : disque cerclé, anneau de sélection séparé du dis
   expect(s.ecart).toBeGreaterThan(2);            // l'anneau ne touche pas le disque
   expect(s.anneau).not.toBe('rgba(0, 0, 0, 0)');
 });
+
+// ---- Revue PR #3 : gestes (constats mineurs 2 à 7) ----
+const xSurlig = page => annots(page, 'surlig').first().locator('rect').getAttribute('x').then(Number);
+async function appuyer(page, x, y) { const p = await ecran(page, x, y); await page.mouse.move(p.x, p.y); await page.mouse.down(); }
+async function vers(page, x, y) { const p = await ecran(page, x, y); await page.mouse.move(p.x, p.y, { steps: 4 }); }
+
+test('Ctrl+Z et lettres d\'outil ignorés pendant un déplacement', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Surligneur (H)');
+  await surligner(page, 100, 300, 200, 360);
+  await page.keyboard.press('v');
+  await cliquer(page, 150, 330);
+  await appuyer(page, 150, 330);
+  await vers(page, 250, 330);
+  await page.keyboard.press('Control+z');          // pendant le geste : sans effet
+  await page.keyboard.press('h');
+  await page.mouse.up();
+  await expect(annots(page, 'surlig')).toHaveCount(1);
+  expect(await xSurlig(page)).toBeCloseTo(200, 0);
+  await expect(bouton(page, 'Sélection (V)')).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Control+z');          // après : défait le déplacement, pas la création
+  expect(await xSurlig(page)).toBeCloseTo(100, 0);
+  await expect(annots(page, 'surlig')).toHaveCount(1);
+});
+
+test('un clic qui tremble (≤ 2 px) n\'est pas un déplacement', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Surligneur (H)');
+  await surligner(page, 100, 300, 200, 360);
+  await exporter(page);                             // indicateur éteint
+  await expect(page.locator('#pdf-modif')).toHaveText('');
+  await page.keyboard.press('v');
+  const p = await ecran(page, 150, 330);
+  await page.mouse.move(p.x, p.y); await page.mouse.down();
+  await page.mouse.move(p.x + 1, p.y + 1); await page.mouse.up();
+  expect(await xSurlig(page)).toBeCloseTo(100, 0);
+  await expect(page.locator('#pdf-modif')).toHaveText('');
+});
+
+test('geste interrompu (pointercancel) : le déplacement est défait, rien n\'est enregistré', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Surligneur (H)');
+  await surligner(page, 100, 300, 200, 360);
+  await page.keyboard.press('v');
+  await appuyer(page, 150, 330);
+  await vers(page, 300, 330);
+  expect(await xSurlig(page)).toBeCloseTo(250, 0);
+  await page.evaluate(() => document.querySelector('.pdf-calque').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 })));
+  await page.mouse.up();
+  expect(await xSurlig(page)).toBeCloseTo(100, 0);
+  await page.keyboard.press('Control+z');          // seule la création est dans l'historique
+  await expect(annots(page, 'surlig')).toHaveCount(0);
+});
+
+test('un second pointeur pendant un tracé est ignoré', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Surligneur (H)');
+  await appuyer(page, 100, 300);
+  await vers(page, 150, 340);
+  const autre = await ecran(page, 400, 500);
+  await page.evaluate(p => document.querySelector('.pdf-calque').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: p.x, clientY: p.y })), autre);
+  await vers(page, 200, 360);
+  await page.mouse.up();
+  await expect(annots(page, 'surlig')).toHaveCount(1);
+  expect(await xSurlig(page)).toBeCloseTo(100, 0);
+  await expect(page.locator('.pdf-apercu')).toHaveCount(0);
+});
+
+test('texte en cours de saisie : posé quand la page est redessinée (redimensionnement)', async ({ page }) => {
+  await ouvrir(page);
+  await page.locator('#pdf-largeur').click();
+  await pret(page);
+  await outil(page, 'Texte (T)');
+  await cliquer(page, 100, 200);
+  await page.keyboard.type('Saisie conservee');
+  const v = page.viewportSize();
+  await page.evaluate(() => { window.__ancien = document.querySelector('.pdf-calque'); });
+  await page.setViewportSize({ width: v.width - 120, height: v.height });
+  await page.waitForFunction(() => document.querySelector('.pdf-calque') !== window.__ancien);
+  await expect(annots(page, 'texte')).toHaveCount(1);
+  await expect(annots(page, 'texte')).toHaveText('Saisie conservee');
+});
+
+test('« Annuler » désactivé quand la seule page annotée est supprimée', async ({ page }) => {
+  await ouvrir(page, 2);
+  await aller(page, 'Page suivante');
+  await outil(page, 'Surligneur (H)');
+  await surligner(page, 100, 300, 200, 360);
+  await expect(bouton(page, 'Annuler (Ctrl+Z)')).toBeEnabled();
+  await bouton(page, 'Supprimer').click();
+  await expect(page.locator('.pdf-mini')).toHaveCount(1);
+  await expect(bouton(page, 'Annuler (Ctrl+Z)')).toBeDisabled();
+});

@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const { test, expect, ouvrirApp } = require('./aide');
-const { pdfChiffre } = require('./pdf-chiffre');
+const { pdfChiffre, pdfChiffreAes256 } = require('./pdf-chiffre');
 
 test.beforeEach(async ({ page }) => { await ouvrirApp(page); });
 
@@ -281,4 +281,52 @@ test('une modification faite pendant l\'export n\'est pas perdue : l\'indicateur
   expect(textes({ pages: await lire(page, apres) })).toEqual(['Page 2', 'Page 1']);   // le travail fait pendant l'export est bien là
   expect(await dessinees(apres)).toEqual([false, true]);
   await expect(page.locator('#pdf-modif')).toHaveText('');
+});
+
+// Revue PR #2 n° 8 : Cerfa récent, AES-256 (R6), flux d'objets et chaînes de champ chiffrées
+test('PDF chiffré AES-256 (propriétaire seul) : champ lu, modifié, exporté', async ({ page }) => {
+  const octets = await pdfChiffreAes256('Texte chiffre AES', 'dossier.numero', 'Valeur chiffree 42');
+  expect(octets.toString('latin1')).not.toContain('Valeur chiffree');   // vraiment chiffré
+  await page.evaluate(o => MPDS.envoyer(new File([new Uint8Array(o)], 'cerfa-aes.pdf'), 'pdf'), [...octets]);
+  await expect(page.locator('#pdf-canvas')).toBeVisible();
+  const champ = page.getByLabel('dossier.numero', { exact: true });
+  await expect(champ).toHaveValue('Valeur chiffree 42');
+  await champ.fill('Modifiee 43');
+  await bouton(page, 'Pivoter à droite').click();
+  const r = await exporter(page, 'Enregistrer le PDF');
+  expect(rotations(r)).toEqual([90]);
+  expect(r.pages[0].texte).toContain('Texte chiffre AES');
+  expect(r.pages[0].texte).toContain('Modifiee 43');
+});
+
+// Revue PR #2 n° 5 : pivoter pendant le premier rendu de la miniature
+test('miniature pivotée pendant son premier rendu : redessinée à la bonne rotation', async ({ page }) => {
+  await page.evaluate(() => {   // le premier rendu de miniature (petit canvas) attend un feu vert
+    const feu = new Promise(r => { window.__vert = r; });
+    let retenu = false;
+    const ombre = (o, nom, v) => Object.defineProperty(o, nom, { value: v });
+    const ouvrir = MPDS.pdfjs.ouvrir;
+    MPDS.pdfjs.ouvrir = async (...a) => {
+      const t = await ouvrir(...a), p0 = t.promise;
+      ombre(t, 'promise', p0.then(d => {
+        const getPage = d.getPage.bind(d);
+        d.getPage = n => getPage(n).then(pg => {
+          const render = pg.render.bind(pg);
+          pg.render = args => {
+            const tache = render(args);
+            if (!retenu && args.canvasContext.canvas.width < 400) { retenu = window.__retenu = true; const pr = tache.promise; ombre(tache, 'promise', feu.then(() => pr)); }
+            return tache;
+          };
+          return pg;
+        });
+        return d;
+      }));
+      return t;
+    };
+  });
+  await ouvrirDoc(page, 'm.pdf', 1);
+  await page.waitForFunction(() => window.__retenu);
+  await bouton(page, 'Pivoter à droite').click();
+  await page.evaluate(() => window.__vert());
+  await page.waitForFunction(() => { const c = document.querySelector('.pdf-mini canvas'); return c && c.width > c.height; }, null, { timeout: 5000 });
 });

@@ -63,9 +63,9 @@
       ctx.message('Préparation du PDF…');
       try {
         const nom = suffixe ? MPDS.pdfExport.nomSortie(ctx.nom(), suffixe) : ctx.nom();
-        const avis = [];
-        livrer(await MPDS.pdfExport.construire(pages, avis), nom);
-        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + avis.map(a => ' ' + a).join(''));
+        const avis = [], avisFichier = [];   // sur le contenu (suivent le fichier) ; sur le fichier PDF seulement
+        livrer(await MPDS.pdfExport.construire(pages, avis, avisFichier), nom, avis);
+        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + [...avis, ...avisFichier].map(a => ' ' + a).join(''));
         return true;
       } catch (err) {
         ctx.message('L\'export a échoué : ' + (err.message || err), true);
@@ -81,7 +81,8 @@
     // en mémoire, sous le nom d'origine (le .md portera ce nom)
     b.markdown.addEventListener('click', () => exporter(modele.liste.slice(), '',
       // le convertisseur choisit d'après l'extension : un PDF nommé « Scan_0001 » ou « x.txt » doit finir en .pdf
-      (octets, nom) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir')));
+      // les avis sur le contenu (XFA abandonné, champ non figé) suivent le fichier : le module PDF est masqué à l'envoi
+      (octets, nom, avis) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir', { avis })));
 
     return { maj };
   }

@@ -1,6 +1,6 @@
 // Fabrique (Node) de PDF chiffrés « mot de passe propriétaire seulement » : le mot de passe
 // utilisateur est vide, comme dans les Cerfa. Algorithmes du standard PDF (RC4 40/128 bits,
-// AES-128), écrits ici pour ne dépendre d'aucune bibliothèque d'écriture.
+// AES-128), écrits ici pour ne dépendre d'aucune bibliothèque d'écriture ; AES-256 par le fork pdf-lib.
 'use strict';
 
 const crypto = require('crypto');
@@ -70,4 +70,18 @@ function pdfChiffre(textes, mode = 'rc4_40') {
   return Buffer.concat([sortie, Buffer.from(fin)]);
 }
 
-module.exports = { pdfChiffre, MODES };
+// AES-256 (V5 R6, AESV3), flux d'objets, chaînes chiffrées (/T, /V d'un champ) : comme un Cerfa
+// récent. Écrit par le chiffrement du fork pdf-lib (vérifié : aucun texte en clair dans le fichier).
+async function pdfChiffreAes256(texte, champ, valeur) {
+  const { PDFDocument, StandardFonts } = require('@cantoo/pdf-lib');
+  const doc = await PDFDocument.create();
+  const p = doc.addPage([595, 842]);
+  p.drawText(texte, { x: 72, y: 700, size: 24, font: await doc.embedFont(StandardFonts.Helvetica) });
+  const f = doc.getForm().createTextField(champ);
+  f.setText(valeur);
+  f.addToPage(p, { x: 72, y: 600, width: 250, height: 24 });
+  doc.encrypt({ userPassword: '', ownerPassword: 'proprio', permissions: { modifying: false } });
+  return Buffer.from(await doc.save({ useObjectStreams: true }));
+}
+
+module.exports = { pdfChiffre, pdfChiffreAes256, MODES };

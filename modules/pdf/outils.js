@@ -2,7 +2,7 @@
 // annuler/rétablir, palette, réglages) et raccourcis clavier. Assemble le modèle (annotations.js)
 // et le calque (calque.js). Publie MPDS.pdfOutils.creer(ctx).
 //   ctx = { modele, barre, aller(n), majBarre(), message(texte, erreur) }
-// Renvoie { poser, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
+// Renvoie { poser, maj, vider, detruire } : poser(cv, entree, info, base) donne l'élément à mettre dans la scène.
 (() => {
   'use strict';
   // [id, nom, touche, icône, libellé visible] : groupe 1 icônes seules, groupe 2 (signature, tampon) avec libellé
@@ -19,7 +19,7 @@
     const { modele, barre } = ctx;
     const r = { outil: 'sel', couleur: PAR_OUTIL.texte, police: 'Helvetica', taille: 18, epaisseur: 3, opacite: 25, tampon: 'recu', date: MPDS.pdfTampons.dateDuJour() };
     const boutons = {}, pastilles = {}, reglages = {}, memoire = { ...PAR_OUTIL };
-    let annuler = null, retablir = null;
+    let annuler = null, retablir = null, dateAuto = r.date;   // dernière date posée d'office (date du jour)
 
     const bouton = (id, libelle, icone, titre) => {
       const b = document.createElement('button');
@@ -69,6 +69,8 @@
       else choisirOutil(o);
     }
     function choisirOutil(o) {
+      // Tampon : une date laissée d'office suit le jour (PWA ouverte après minuit) ; une date saisie est gardée
+      if (o === 'tampon' && r.date === dateAuto) { r.date = dateAuto = MPDS.pdfTampons.dateDuJour(); date.value = r.date; }
       if (r.outil in memoire) memoire[r.outil] = r.couleur;
       r.outil = o;
       if (o in memoire) r.couleur = memoire[o];
@@ -129,6 +131,7 @@
       if (MPDS.actif() !== 'pdf' || !modele.liste.length || e.altKey || e.metaKey) return;
       const c = e.target, k = e.key.toLowerCase();
       if (c && (SAISIE.test(c.tagName) || c.isContentEditable)) return;
+      if (calque.enGeste()) return;   // pendant un tracé ou un déplacement : annuler ou changer d'outil le corromprait
       const outil = OUTILS.find(o => o[2].toLowerCase() === k);
       if (e.ctrlKey && k === 'z') (e.shiftKey ? annotations.retablir : annotations.annuler)();
       else if (e.ctrlKey && k === 'y') annotations.retablir();
@@ -141,6 +144,7 @@
 
     return {
       poser: calque.poser,
+      maj,
       vider() { calque.fermer(); annotations.vider(); maj(); },
       detruire() { document.removeEventListener('keydown', surTouche); },
     };

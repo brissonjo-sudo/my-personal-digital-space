@@ -1092,7 +1092,8 @@ async function convertir(fichier, ext, nom, ctx) {
 // =====================================================================
 // SECTION 4 : ORCHESTRATEUR
 // =====================================================================
-async function traiterFichiers(fileList) {
+// avis : avertissements de l'envoyeur (passerelle PDF), ajoutés au message de chaque ligne du journal
+async function traiterFichiers(fileList, avis = []) {
   // Pool de conversion : jusqu'à N fichiers en parallèle au lieu d'un par un.
   // Chaque travailleur pioche le fichier suivant dès qu'il a fini le sien,
   // donc les lignes du journal apparaissent dans l'ordre de dépôt.
@@ -1100,7 +1101,7 @@ async function traiterFichiers(fileList) {
   let prochain = 0;
   const travailleur = async () => {
     while (prochain < fichiers.length) {
-      await traiterUnFichier(fichiers[prochain++]);
+      await traiterUnFichier(fichiers[prochain++], avis);
     }
   };
   const nbTravailleurs = Math.min(CONVERSIONS_MAX_PARALLELES, fichiers.length);
@@ -1108,7 +1109,7 @@ async function traiterFichiers(fileList) {
   mettreAJourBoutonZip();
 }
 
-async function traiterUnFichier(fichier) {
+async function traiterUnFichier(fichier, avis = []) {
   const nom    = fichier.name;
   const ext    = extOf(nom);
   const id     = 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
@@ -1152,10 +1153,10 @@ async function traiterUnFichier(fichier) {
     mettreAJourLigne(id, {
       icone:    estScan ? '⚠️' : '✅',
       statut:   estScan ? 'warn' : 'ok',
-      msg:      estImage ? 'Image : lancez l\'OCR pour reconnaître son texte.'
+      msg:     (estImage ? 'Image : lancez l\'OCR pour reconnaître son texte.'
               : toutScanne ? 'PDF scanné : aucun texte extractible. Lancez l\'OCR pour reconnaître le texte.'
               : mixte ? `Texte extrait. ${mixte[1]} ${mixte[1].startsWith('Pages') ? 'scannées : lancez l\'OCR pour les reconnaître.' : 'scannée : lancez l\'OCR pour la reconnaître.'}`
-              : `Converti → ${sortie.nomMd}${avecImages}`,
+              : `Converti → ${sortie.nomMd}${avecImages}`) + avis.map(a => ' ' + a).join(''),
       resultat,
       proposerOcr: estScan,
       cliquable: true,
@@ -1561,5 +1562,5 @@ MPDS.enregistrer({
   icone: 'convertir',
   monter: initUI,
   demonter: demonterConvertir,
-  surFichier: fichier => traiterFichiers([fichier]),
+  surFichier: (fichier, options) => traiterFichiers([fichier], (options && options.avis) || []),
 });

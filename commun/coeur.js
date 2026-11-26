@@ -64,12 +64,13 @@ const MPDS = (() => {
   }
 
   // Remet un fichier à un module (en mémoire, rien n'est stocké) et l'affiche.
-  function envoyer(fichier, idModule) {
+  // options (facultatif) : transmis tel quel au module, ex. { avis } (avertissements de l'envoyeur).
+  function envoyer(fichier, idModule, options) {
     const m = modules.get(idModule);
     if (!m || typeof m.def.surFichier !== 'function') throw new Error('Module inconnu ou sans réception de fichier : ' + idModule);
     activer(idModule);
     if (location.hash !== '#/' + idModule) location.hash = '#/' + idModule;
-    return m.def.surFichier(fichier);
+    return m.def.surFichier(fichier, options);
   }
 
   // Service worker : hors-ligne + installation PWA. Uniquement en http(s) :

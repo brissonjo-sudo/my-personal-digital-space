@@ -39,6 +39,7 @@
     q.largeur.setAttribute('aria-pressed', String(ajuste));
     miniatures.marquer(page);
     actions.maj();
+    if (annot) annot.maj();   // Annuler/Rétablir : une page supprimée emporte ses commandes
   }
 
   function annulerRendu() {
@@ -204,6 +205,8 @@
       if (e.key === '+' || e.key === '=') changerZoom(1);
       else if (e.key === '-' || e.key === '_') changerZoom(-1);
       else fait = false;
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && c === q.scene && q.scene.scrollWidth > q.scene.clientWidth) {
+      fait = false;   // page plus large que la scène (zoom) : ←/→ la font défiler (WCAG 2.1.1) ; PageUp/PageDown changent de page
     } else if (e.key === 'ArrowRight' || e.key === 'PageDown') allerA(page + 1);
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') allerA(page - 1);
     else if (e.key === 'Home') allerA(1);
@@ -260,6 +263,7 @@
     });
 
     document.addEventListener('keydown', surTouche);
+    window.addEventListener('beforeunload', avantDepart);
     // « Ajuster à la largeur » suit le redimensionnement de la scène
     new ResizeObserver(() => {
       const l = q.scene.clientWidth;
@@ -267,8 +271,14 @@
     }).observe(q.scene);
   }
 
+  // Fermer l'onglet ou recharger avec des modifications non enregistrées : le navigateur demande confirmation
+  function avantDepart(e) {
+    if (modele.liste.length && modele.modifie) { e.preventDefault(); e.returnValue = ''; }
+  }
+
   function demonter() {
     document.removeEventListener('keydown', surTouche);
+    window.removeEventListener('beforeunload', avantDepart);
     jetonOuverture++;
     if (q) { annot.detruire(); fermerDocument(); }
   }
