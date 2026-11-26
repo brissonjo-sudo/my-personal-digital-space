@@ -47,12 +47,19 @@
 
   <!-- Application : coeur (registre, routeur, passerelle), commun/pdfjs.js (worker PDF.js
        et scripts vérifiés), module Convertir (partage.js = code commun au fil principal
-       et au worker), puis module PDF. Scripts classiques :
+       et au worker), puis module PDF (modèle de pages, export, miniatures, actions, visionneuse ; la
+       bibliothèque d'écriture PDF n'est chargée qu'au premier export, voir commun/pdfjs.js). Scripts classiques :
        l'application fonctionne aussi ouverte depuis le disque (file://). -->
   <script defer src="commun/coeur.js"></script>
   <script defer src="commun/pdfjs.js"></script>
   <script defer src="modules/convertir/partage.js"></script>
   <script defer src="modules/convertir/convertir.js"></script>
+  <script defer src="modules/pdf/pages.js"></script>
+  <script defer src="modules/pdf/export.js"></script>
+  <script defer src="modules/pdf/coordonnees.js"></script>
+  <script defer src="modules/pdf/texte.js"></script>
+  <script defer src="modules/pdf/miniatures.js"></script>
+  <script defer src="modules/pdf/actions.js"></script>
   <script defer src="modules/pdf/visionneuse.js"></script>
 </head>
 <body>

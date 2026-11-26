@@ -67,6 +67,24 @@ test('OCR disponible hors-ligne après un premier usage', async ({ page, context
   expect(await ocrUnScan()).toContain('Bonjour Saint-Ouen');   // hors-ligne
 });
 
+test('écriture de PDF disponible hors-ligne après un premier export', async ({ page, context }) => {
+  await ouvrirApp(page);
+  await page.waitForFunction(() => navigator.serviceWorker.controller);
+  const exporter = async () => {
+    await page.evaluate(() => MPDS.envoyer(Fab.pdf('h.pdf', [[{ t: 'Hors ligne', x: 72, y: 700 }]]), 'pdf'));
+    await expect(page.locator('#pdf-canvas')).toBeVisible();
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click()]);
+    expect(fs.readFileSync(await dl.path()).subarray(0, 5).toString()).toBe('%PDF-');
+  };
+  await exporter();   // en ligne : pdf-lib téléchargée puis mise en cache à la volée
+  const cache = await page.evaluate(async c => (await (await caches.open(c)).keys()).map(r => r.url), CACHE);
+  expect(cache.some(u => u.includes('@cantoo/pdf-lib') && u.endsWith('pdf-lib.min.js'))).toBe(true);
+  await context.setOffline(true);
+  await page.reload();
+  await page.waitForFunction(() => window.pdfjsLib && document.querySelector('#pdf-ouvrir'));   // rechargé sur #/pdf : module PDF monté
+  await exporter();   // hors-ligne : la bibliothèque vient du cache
+});
+
 test('manifeste installable', async ({ page }) => {
   await ouvrirApp(page);
   const manifeste = await page.evaluate(async () => {

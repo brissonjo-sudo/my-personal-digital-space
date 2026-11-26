@@ -9,7 +9,7 @@
  */
 'use strict';
 
-const VERSION = 'mpds-v2';                    // ← nom du cache ; bump si libs CDN changent
+const VERSION = 'mpds-v3';                    // ← nom du cache ; bump si libs CDN changent
 const PREFIXE = 'mpds-';                      // seuls les caches de ce préfixe nous appartiennent
 const CDN = 'https://cdnjs.cloudflare.com/ajax/libs';
 // SheetJS n'est plus publié sur cdnjs depuis 0.18.5 (version vulnérable)
@@ -28,6 +28,12 @@ const PRECACHE = [
   './modules/convertir/partage.js',
   './modules/convertir/convertir.js',
   './modules/pdf/pdf.css',
+  './modules/pdf/pages.js',
+  './modules/pdf/export.js',
+  './modules/pdf/coordonnees.js',
+  './modules/pdf/texte.js',
+  './modules/pdf/miniatures.js',
+  './modules/pdf/actions.js',
   './modules/pdf/visionneuse.js',
   `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
   `${CDN}/turndown/7.1.2/turndown.min.js`,
@@ -40,9 +46,10 @@ const PRECACHE = [
 
 const LOCAUX = new Set(PRECACHE.filter(u => /^\.\/.+\.(js|css)$/.test(u)).map(u => new URL(u, self.location).href));
 
-// OCR : mis en cache à la volée (voir le gestionnaire fetch), pas au préchargement
+// OCR et écriture de PDF (pdf-lib, ≈ 600 Ko) : mis en cache à la volée (voir le gestionnaire
+// fetch) au premier usage, pas au préchargement
 const NPM = 'https://cdn.jsdelivr.net/npm';
-const OCR_PREFIXES = [`${NPM}/tesseract.js@`, `${NPM}/tesseract.js-core@`, `${NPM}/@tesseract.js-data/`];
+const OCR_PREFIXES = [`${NPM}/tesseract.js@`, `${NPM}/tesseract.js-core@`, `${NPM}/@tesseract.js-data/`, `${NPM}/@cantoo/pdf-lib@`];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
@@ -110,8 +117,8 @@ self.addEventListener('fetch', event => {
     const enCache = await caches.match(req);
     if (enCache) return enCache;
     const reponse = await fetch(req);
-    // Fichiers de l'OCR (~5 Mo, versions épinglées) : téléchargés au premier
-    // usage seulement, puis conservés pour un OCR hors-ligne.
+    // Fichiers de l'OCR (~5 Mo) et pdf-lib (versions épinglées) : téléchargés au premier
+    // usage seulement, puis conservés pour un usage hors-ligne.
     if (OCR_PREFIXES.some(p => req.url.startsWith(p)) && (reponse.ok || reponse.type === 'opaque')) {
       const cache = await caches.open(VERSION);
       await cache.put(req, reponse.clone());
