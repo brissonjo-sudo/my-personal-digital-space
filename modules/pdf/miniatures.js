@@ -28,6 +28,7 @@
           if (v !== it.v) return;
           it.tache = null; it.rendu = rotation;
           it.cv.replaceWith(cv); it.cv = cv;
+          if (it.page.rotation !== rotation) dessiner(it);   // pivotée pendant le rendu : `rafraichir` n'a pas pu relancer
         });
       }).catch(() => { /* annulé, ou document fermé entre-temps */ });
     }
