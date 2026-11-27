@@ -42,6 +42,9 @@ Après une session significative, mettre à jour :
   hors ligne. Pas d'ES modules, pas de `fetch` de fichiers locaux.
 - **Rien n'est stocké** hors session, sauf préférences d'interface
   (`localStorage`, clés préfixées `mpds-`).
+  Exception (2026-11-27, choix de Jo) : la signature, si l'utilisateur coche
+  « Enregistrer sur cet appareil », chiffrée par sa phrase secrète
+  (`modules/pdf/coffre.js`, clé `mpds-signature`). Jamais rien en clair.
 - **Cache du service worker préfixé `mpds-`** : ne jamais supprimer un cache
   d'un autre préfixe (même origine que l'ancien outil sur github.io).
 - Ajouter une bibliothèque :
