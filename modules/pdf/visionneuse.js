@@ -14,7 +14,7 @@
   const modele = MPDS.pdfPages.creer();          // pages affichées : [{ source, index, rotation }]
   let miniatures = null, actions = null, annot = null, formulaire = null;   // annot : annotations (outils.js)
   let page = 1, courante = null, zoom = 1, ajuste = true;   // page : position (1-based) ; courante : sa page du modèle
-  let tacheRendu = null, jetonRendu = 0, jetonOuverture = 0, tailleScene = 0, erreurRendu = false;
+  let tacheRendu = null, jetonRendu = 0, jetonOuverture = 0, tailleScene = 0, erreurRendu = false, arriveeVoulue = null;
 
   const bornes = (v, min, max) => Math.min(max, Math.max(min, v));
   const SAISIE = /^(INPUT|TEXTAREA|SELECT)$/;
@@ -75,6 +75,7 @@
       tacheRendu = null;
       const feuille = annot.poser(cv, entree, { view: p.view, rotation }, base);   // canvas + calque d'annotations
       q.scene.replaceChildren(feuille);
+      if (arriveeVoulue) { q.scene.scrollTop = arriveeVoulue === 'bas' ? q.scene.scrollHeight : 0; arriveeVoulue = null; }
       formulaire.poser(feuille, entree, p, base);   // couche de saisie du formulaire (asynchrone)
       tailleScene = q.scene.clientWidth;
       if (erreurRendu) { erreurRendu = false; message(''); }   // l'alerte d'une page illisible ne survit pas à la suivante
@@ -87,12 +88,13 @@
     }
   }
 
-  function allerA(n) {
+  // arrivee (molette) : 'haut' ou 'bas', position de défilement sur la nouvelle page
+  function allerA(n, arrivee) {
     if (!modele.liste.length) return;
     const v = Math.round(parseFloat(n));
     const cible = Number.isFinite(v) ? bornes(v, 1, modele.liste.length) : page;   // saisie invalide : on garde la page
     if (cible === page && q.scene.firstChild) { majBarre(); return; }
-    page = cible; courante = modele.liste[page - 1];
+    page = cible; courante = modele.liste[page - 1]; arriveeVoulue = arrivee;
     afficher();
   }
 
@@ -102,18 +104,6 @@
     if (!suivant) return;
     zoom = suivant; ajuste = false;
     afficher();
-  }
-
-  // Ctrl + molette sur le document (et pincement du pavé tactile, qui arrive en ctrlKey) : zoom du PDF,
-  // pas de la page. Un cran ≈ 100 px ; les petits pas du pincement sont cumulés jusqu'à 50.
-  let cumul = 0;
-  function surMolette(e) {
-    if (!e.ctrlKey || !modele.liste.length) return;
-    e.preventDefault();
-    cumul += e.deltaY * (e.deltaMode ? 40 : 1);   // deltaMode 1 (lignes, Firefox) ramené en pixels
-    if (Math.abs(cumul) < 50) return;
-    changerZoom(cumul < 0 ? 1 : -1);
-    cumul = 0;
   }
 
   // Aligne tout l'affichage sur le modèle après une action ; la page courante est suivie
@@ -258,7 +248,7 @@
     q.moins.addEventListener('click', () => changerZoom(-1));
     q.plus.addEventListener('click', () => changerZoom(1));
     q.largeur.addEventListener('click', () => { ajuste = true; afficher(); });
-    q.scene.addEventListener('wheel', surMolette, { passive: false });   // passive: false, sinon preventDefault ignoré
+    MPDS.pdfMolette.brancher(q.scene, { zoomer: changerZoom, page: () => page, total: () => modele.liste.length, aller: allerA });
 
     // Glisser-déposer sur tout le module (compteur : pas de clignotement sur les enfants)
     let survols = 0;

@@ -47,6 +47,7 @@ const PRECACHE = [
   './modules/pdf/formulaire.js',
   './modules/pdf/formulaire-export.js',
   './modules/pdf/gabarit.js',
+  './modules/pdf/molette.js',
   './modules/pdf/visionneuse.js',
   `${CDN}/mammoth/1.6.0/mammoth.browser.min.js`,
   `${CDN}/turndown/7.1.2/turndown.min.js`,

@@ -152,6 +152,86 @@ test('Ctrl + molette : zoom du PDF, zoom du navigateur empêché ; molette seule
   await expect(zoom).toHaveText(agrandi + ' %');
 });
 
+// Demande de Jo : la molette sur le document passe d'une page à l'autre
+test('molette : défile dans la page, puis page voisine au bord ; un seul changement par geste', async ({ page }) => {
+  await ouvrirDoc(page);
+  const scene = page.locator('#pdf-scene');
+  const defil = () => scene.evaluate(s => ({ haut: s.scrollTop, bas: s.scrollHeight - s.clientHeight - s.scrollTop }));
+  await page.evaluate(() => { window.__empeche = []; window.addEventListener('wheel', e => __empeche.push(e.defaultPrevented)); });
+  const b = await scene.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + 100);
+  const calme = () => page.waitForTimeout(300);   // fin du geste (verrou de 200 ms)
+
+  // Page ajustée à la largeur, plus haute que la scène : la molette défile d'abord
+  expect((await defil()).bas).toBeGreaterThan(100);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(async () => (await defil()).haut).toBeGreaterThan(0);
+  await expect(numero(page)).toHaveValue('1');
+  expect(await page.evaluate(() => __empeche.at(-1))).toBe(false);
+
+  // Au bas de la page : un cran de plus → page 2, en haut
+  await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
+  await calme();
+  await page.mouse.wheel(0, 100);
+  await expect(numero(page)).toHaveValue('2');
+  await expect.poll(async () => (await defil()).haut).toBe(0);
+  expect(await page.evaluate(() => __empeche.at(-1))).toBe(true);
+
+  // En haut de la page 2 : un cran vers le haut → page 1, arrivée en bas (lecture continue)
+  await calme();
+  await page.mouse.wheel(0, -100);
+  await expect(numero(page)).toHaveValue('1');
+  await expect.poll(async () => (await defil()).bas).toBeLessThanOrEqual(1);
+
+  // Petits pas (pavé tactile) cumulés jusqu'au seuil (50) avant de changer de page
+  await calme();
+  await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 12);
+  await page.waitForTimeout(100);
+  await expect(numero(page)).toHaveValue('1');
+  await page.mouse.wheel(0, 12);
+  await expect(numero(page)).toHaveValue('2');
+
+  // Dernière page, en bas : rien, et la molette garde son rôle natif
+  await calme();
+  await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
+  await page.mouse.wheel(0, 100);
+  await expect(numero(page)).toHaveValue('3');
+  await calme();
+  await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
+  const n = await page.evaluate(() => __empeche.length);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(() => page.evaluate(() => __empeche.length)).toBe(n + 1);
+  expect(await page.evaluate(() => __empeche.at(-1))).toBe(false);
+  await expect(numero(page)).toHaveValue('3');
+
+  // Maj + molette (défilement horizontal) : jamais de changement de page
+  await scene.evaluate(s => { s.scrollTop = 0; });
+  await page.keyboard.down('Shift');
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up('Shift');
+  await page.waitForTimeout(100);
+  await expect(numero(page)).toHaveValue('3');
+
+  // Page entière visible (zoom arrière) : un cran = une page, mais une rafale (inertie) = une seule
+  for (let i = 0; i < 8 && (await defil()).bas + (await defil()).haut > 0; i++) {
+    await page.getByRole('button', { name: 'Zoom arrière' }).click();
+    await largeurStable(page);
+  }
+  expect(await defil()).toEqual({ haut: 0, bas: 0 });
+  await page.keyboard.press('Home');
+  await expect(numero(page)).toHaveValue('1');
+  await page.mouse.move(b.x + b.width / 2, b.y + 100);   // le clic sur Zoom arrière a déplacé le pointeur
+  await calme();
+  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 100);
+  await expect(numero(page)).toHaveValue('2');
+  await page.waitForTimeout(100);
+  await expect(numero(page)).toHaveValue('2');
+  await calme();
+  await page.mouse.wheel(0, 100);
+  await expect(numero(page)).toHaveValue('3');
+});
+
 test('l\'ajustement à la largeur suit la taille de la fenêtre', async ({ page }) => {
   await ouvrirDoc(page);
   const large = await largeurCanvas(page);

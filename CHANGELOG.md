@@ -3,6 +3,7 @@
 ## [Non publié]
 
 ### Ajouté
+- 2026-11-27 — **Visionneuse : la molette change de page.** Le pointeur sur le document, la molette fait d'abord défiler la page si elle dépasse de la fenêtre ; une fois le bas atteint, un cran de plus passe à la page suivante (affichée depuis le haut), une fois le haut atteint, à la précédente (affichée depuis le bas, comme une lecture continue). Une page entière visible change à chaque cran. Un seul changement de page par geste : l'inertie du pavé tactile ou une rotation rapide de la molette ne font pas sauter plusieurs pages (200 ms de calme avant le suivant) ; les petits pas du pavé sont cumulés. Première page en haut et dernière page en bas : rien ne change. Maj + molette, le défilement horizontal et le panneau des miniatures ne sont pas concernés. La gestion de la molette (zoom compris) passe dans `modules/pdf/molette.js`.
 - 2026-11-27 — **Visionneuse : Ctrl + molette zoome le PDF**, pas toute la page du navigateur, quand le pointeur est sur le document. Molette vers le haut : zoom avant ; vers le bas : zoom arrière, par les mêmes niveaux que les boutons. Le pincement du pavé tactile (envoyé par le navigateur comme Ctrl + molette) zoome aussi le PDF ; ses petits pas sont cumulés pour ne pas sauter plusieurs niveaux d'un coup. Sans Ctrl, la molette fait défiler comme avant ; hors du document, ou sans document ouvert, Ctrl + molette reste le zoom du navigateur.
 
 ### Corrigé
