@@ -20,7 +20,8 @@ const INTEGRITE = {
   'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core-lstm.wasm.js': 'sha384-ljppwjVnA7rpAU/v9enQiR6pXDStaEAYw9I+7ddiEynJcmDNnjHCmcvizBeO3cSA',
 };
 const SEUIL_ALERTE_TAILLE = 50 * 1024 * 1024; // 50 Mo
-const SEUIL_PDF_SCAN = 20;                     // moins de 20 caractères = scan probable
+const SEUIL_PDF_SCAN = 20;                     // moins de 20 caractères avec une image = scan probable
+const PDF_VIDE = 'Ce PDF ne contient ni texte extractible ni image : pages vides, ou texte converti en tracés (illisible ici).';
 // Page couverte par une image (≥ 90 %) : scan même avec un peu de texte par-dessus (tampon, mention)
 const SEUIL_SCAN_COUVERT = 200, COUVERTURE_SCAN = 0.9;
 const CONVERSIONS_MAX_PARALLELES = 4;          // fichiers convertis simultanément
@@ -465,11 +466,13 @@ async function convPdf(ab, nom) {
     // requêtes) plutôt qu'en attendant chaque page l'une après l'autre.
     const pages = await Promise.all(Array.from({ length: pdf.numPages }, (_, i) => pdf.getPage(i + 1).then(lirePagePdf)));
 
-    // Détecter un PDF scanné
+    // Détecter un PDF scanné : presque pas de texte, et une image sur au moins une page. Sans image, un
+    // PDF très court (« Vu le 12/03 ») est converti tel quel ; sans texte ni image, rien à reconnaître.
     const totalChars = pages.reduce((n, p) => n + p.lignes.reduce((m, l) => m + l.texte.length, 0), 0);
-    if (totalChars < SEUIL_PDF_SCAN) {
+    if (totalChars < SEUIL_PDF_SCAN && pages.some(p => p.scannee)) {
       return `# ${baseName(nom)}\n\n> ⚠️ Ce PDF semble être un scan (image) : aucun texte n'a pu être extrait. Utilisez « Reconnaître le texte (OCR) » dans le journal de conversion.\n`;
     }
+    if (!totalChars) return `# ${baseName(nom)}\n\n> ⚠️ ${PDF_VIDE}\n`;
 
     // Pages scannées au milieu d'un PDF texte (annexe signée, courrier numérisé)
     const scannees = pages.flatMap((p, i) => p.scannee ? [i + 1] : []);
@@ -535,6 +538,10 @@ function chargerTesseract() {
 // plus 36 % du texte d'une page. Si les lignes douteuses portent plus de la moitié
 // du texte, c'est un scan dégradé : tout est gardé. `retirees` : lignes ôtées.
 const OCR_CONFIANCE_MIN = 50;
+// Confiance moyenne d'un document sous laquelle son texte est probablement inexploitable (copie trop
+// dégradée) : mesuré 94-95 % sur des scans lisibles, 16 % sur du charabia
+const OCR_CONFIANCE_DOC = 60;
+const OCR_SANS_TEXTE = 'Aucun texte reconnu par l\'OCR : pages blanches, ou image sans texte.';
 function lignesOcr(data) {
   const lignes = (data.blocks || []).flatMap((b, bloc) => (b.paragraphs || []).flatMap(p => p.lines || []).map(l => ({
     texte: l.text.replace(/\s+/g, ' ').trim(),
@@ -611,18 +618,24 @@ async function ocrDocument(fichier, nom, progression) {
         pages.push({ lignes, haut: 0, bas: -canvas.height, hauteur: canvas.height });
       }
       numerosOcr.push(i);
-      confiances.push(data.confidence);
+      confiances.push({ c: data.confidence, n: lignes.reduce((n, l) => n + l.texte.length, 0) });
       if (page) page.cleanup();
     }
     canvas.width = canvas.height = 0;   // libérer la mémoire de l'image
     if (!confiances.length) throw new Error('aucune page scannée à reconnaître');
 
-    const confiance = Math.round(confiances.reduce((s, c) => s + c, 0) / confiances.length);
+    // Moyenne pondérée par les caractères reconnus : une page blanche (verso d'un recto verso) est lue à
+    // 0 % et ferait passer un bon scan pour une copie dégradée. Aucun texte du tout : rien n'est jugé.
+    const car = confiances.reduce((s, x) => s + x.n, 0);
+    if (!car) return { md: `# ${baseName(nom)}\n\n> ⚠️ ${OCR_SANS_TEXTE}\n`, confiance: null };
+    const confiance = Math.round(confiances.reduce((s, x) => s + x.c * x.n, 0) / car);
     const portee = numerosOcr.length === nbPages ? 'Texte obtenu' : `${libellePages(numerosOcr)} : texte obtenu`;
     const blocs = [`# ${baseName(nom)}`,
-      `> ${portee} par reconnaissance optique (OCR), confiance moyenne ${confiance} % : à relire, des erreurs sont possibles.` +
+      `> ${portee} par reconnaissance optique (OCR), confiance moyenne ${confiance} % : ` +
+        (confiance < OCR_CONFIANCE_DOC ? '⚠️ texte probablement inexploitable (copie trop dégradée) ; renumérisez le document si possible (300 ppp, page à plat).'
+          : 'à relire, des erreurs sont possibles.') +
         (retirees ? ` ${retirees} ligne${retirees > 1 ? 's' : ''} illisible${retirees > 1 ? 's' : ''} (captures d'écran) retirée${retirees > 1 ? 's' : ''}.` : '')];
-    return [...blocs, ...blocsPages(pages)].join('\n\n') + '\n';
+    return { md: [...blocs, ...blocsPages(pages)].join('\n\n') + '\n', confiance };
   } finally {
     if (worker) await worker.terminate();
     blobs.forEach(u => URL.revokeObjectURL(u));
@@ -648,11 +661,15 @@ function lancerOcr(li, resultat, bouton) {
   msg.textContent = 'OCR : en attente…';
   fileOcr = fileOcr.then(async () => {
     try {
-      resultat.md = await ocrDocument(resultat.fichier, resultat.nom, t => { msg.textContent = t; });
+      const { md, confiance } = await ocrDocument(resultat.fichier, resultat.nom, t => { msg.textContent = t; });
+      resultat.md = md;
       delete resultat.fichier;
-      li.className = 'journal-item ok';
-      iconeStatut(icone, '✅');
-      msg.textContent = `Texte reconnu par OCR → ${resultat.nomMd} (à relire)`;
+      const sansTexte = confiance === null, faible = !sansTexte && confiance < OCR_CONFIANCE_DOC;
+      li.className = 'journal-item ' + (sansTexte || faible ? 'warn' : 'ok');
+      iconeStatut(icone, sansTexte || faible ? '⚠️' : '✅');
+      msg.textContent = sansTexte ? OCR_SANS_TEXTE
+        : faible ? `Texte reconnu par OCR → ${resultat.nomMd}, mais confiance très faible (${confiance} %) : copie probablement trop dégradée, renumérisez-la si possible.`
+        : `Texte reconnu par OCR → ${resultat.nomMd} (à relire)`;
       bouton.remove();
     } catch (err) {
       li.className = 'journal-item warn';
@@ -1143,6 +1160,7 @@ async function traiterUnFichier(fichier, avis = []) {
     // Détecter alerte scan PDF : document entier, ou pages scannées (note de convPdf)
     const estImage = EXTENSIONS_IMAGE_OCR.has(ext);
     const toutScanne = ext === '.pdf' && md.includes('⚠️ Ce PDF semble être un scan');
+    const vide     = ext === '.pdf' && md.includes(PDF_VIDE);
     const mixte    = ext === '.pdf' && md.match(/^> ⚠️ (Pages? [\d, ]+) : image presque sans texte/m);
     const estScan  = estImage || toutScanne || !!mixte;
     const resultat = { nom, nomMd: sortie.nomMd, md, images, date: dateLocale() };
@@ -1151,9 +1169,10 @@ async function traiterUnFichier(fichier, avis = []) {
 
     const avecImages = images.length ? ` (+ ${images.length} ${motFichiers(images)}${images.length > 1 ? 's' : ''})` : '';
     mettreAJourLigne(id, {
-      icone:    estScan ? '⚠️' : '✅',
-      statut:   estScan ? 'warn' : 'ok',
+      icone:    estScan || vide ? '⚠️' : '✅',
+      statut:   estScan || vide ? 'warn' : 'ok',
       msg:     (estImage ? 'Image : lancez l\'OCR pour reconnaître son texte.'
+              : vide ? 'PDF sans texte ni image : rien à convertir.'
               : toutScanne ? 'PDF scanné : aucun texte extractible. Lancez l\'OCR pour reconnaître le texte.'
               : mixte ? `Texte extrait. ${mixte[1]} ${mixte[1].startsWith('Pages') ? 'scannées : lancez l\'OCR pour les reconnaître.' : 'scannée : lancez l\'OCR pour la reconnaître.'}`
               : `Converti → ${sortie.nomMd}${avecImages}`) + avis.map(a => ' ' + a).join(''),

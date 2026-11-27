@@ -110,8 +110,19 @@
 @media (max-width: 600px) {
   .pdf-module { height: auto; min-height: 100vh; }
   .pdf-corps { flex-direction: column; }
-  .pdf-pages { flex-basis: auto; max-height: 15rem; }
+  /* Téléphone : le document d'abord, les pages ensuite en bandeau horizontal (régions indépendantes,
+     repérées par leurs points de repère : l'ordre visuel peut différer de l'ordre du code) */
+  .pdf-pages { order: 1; flex-basis: auto; }
+  .pdf-pages-tete { flex-direction: row; align-items: center; justify-content: space-between; }
+  .pdf-miniatures { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .pdf-mini-item { width: 5.5rem; }
+  .pdf-mini canvas { width: 4.5rem; }
   .pdf-scene { min-height: 24rem; }
+  /* En-tête et outils resserrés : séparateurs retirés, boutons à libellé moins larges */
+  .pdf-entete { padding-top: .5rem; padding-bottom: .5rem; gap: .5rem .75rem; }
+  .pdf-entete .pdf-sep, .pdf-barre-annot .pdf-sep { display: none; }
+  .pdf-entete .pdf-btn:not(.pdf-btn-icone), .pdf-barre-annot .pdf-btn:not(.pdf-btn-icone) { padding: .3rem .55rem; }
+  .pdf-barre-annot { padding-top: .35rem; padding-bottom: .35rem; }
 }
 
 /* ---- Annotations : calque SVG au-dessus du canvas, zone de saisie du texte ---- */

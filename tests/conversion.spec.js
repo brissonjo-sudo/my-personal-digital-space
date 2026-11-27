@@ -85,10 +85,28 @@ test.describe('PDF', () => {
     expect(md.indexOf('Arrêté')).toBeLessThan(md.indexOf('Article 2'));
   });
 
-  test('PDF scanné (sans texte) signalé', async ({ page }) => {
-    const r = await convertir(page, () => [Fab.pdf('scan.pdf', [[]])]);
+  // Essai réel : un PDF sans texte ni image (ou de moins de 20 caractères) était annoncé « scan », OCR proposé en vain
+  test('PDF sans texte ni image : signalé vide, pas de scan, pas d\'OCR proposé', async ({ page }) => {
+    const r = await convertir(page, () => [Fab.pdf('vide.pdf', [[]])]);
+    expect(r.journal[0].statut).toBe('warn');
+    expect(r.journal[0].msg).toBe('PDF sans texte ni image : rien à convertir.');
+    expect(r.resultats[0].md).toContain('ni texte extractible ni image');
+    expect(r.resultats[0].md).not.toContain('scan');
+    await expect(page.locator('.journal-actions-item button', { hasText: 'OCR' })).toHaveCount(0);
+  });
+
+  test('PDF très court sans image (< 20 caractères) : converti tel quel', async ({ page }) => {
+    const r = await convertir(page, () => [Fab.pdf('visa.pdf', [[{ t: 'Vu le 12/03', x: 72, y: 700 }]])]);
+    expect(r.journal[0].statut).toBe('ok');
+    expect(r.resultats[0].md).toContain('Vu le 12/03');
+    expect(r.resultats[0].md).not.toContain('scan');
+  });
+
+  test('PDF scanné presque sans texte (image) : toujours signalé scan, OCR proposé', async ({ page }) => {
+    const r = await convertir(page, async () => [await Fab.pdfScanne('scan.pdf', [['Courrier']])]);
     expect(r.journal[0].statut).toBe('warn');
     expect(r.resultats[0].md).toContain('semble être un scan');
+    await expect(page.locator('.journal-actions-item button', { hasText: 'OCR' })).toHaveCount(1);
   });
 });
 

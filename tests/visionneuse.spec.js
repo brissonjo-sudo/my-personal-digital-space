@@ -304,3 +304,28 @@ test('beforeunload : confirmation seulement si des modifications ne sont pas enr
   await page.getByRole('button', { name: 'Pivoter à droite', exact: true }).click();
   expect(await demande()).toBe(true);
 });
+
+// Essai sur téléphone : le panneau Pages passait avant le document (page à ~700 px du haut), et la miniature
+// courante amenée dans le panneau faisait défiler toute la fenêtre
+test('téléphone : document avant le panneau Pages, visible dès l\'ouverture, fenêtre non défilée', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 839 });
+  await ouvrirDoc(page, 'mobile.pdf', 30);
+  await page.waitForTimeout(300);
+  const m = await page.evaluate(() => ({
+    page: document.getElementById('pdf-canvas').getBoundingClientRect().top,
+    pages: document.querySelector('.pdf-pages').getBoundingClientRect().top,
+    defile: scrollY, hauteur: innerHeight, deborde: document.documentElement.scrollWidth - innerWidth,
+  }));
+  expect(m.page).toBeLessThan(m.pages);           // le document d'abord
+  expect(m.page).toBeLessThan(m.hauteur * 0.6);   // la page occupe au moins 40 % du premier écran
+  expect(m.defile).toBe(0);
+  expect(m.deborde).toBeLessThanOrEqual(0);       // pas de défilement horizontal de la page
+  // aller à la dernière page : la miniature défile dans son bandeau, la fenêtre ne bouge pas
+  await page.locator('#pdf-scene').focus();
+  const avant = await page.evaluate(() => scrollY);
+  await page.keyboard.press('End');
+  await expect(page.locator('.pdf-mini[data-page="30"]')).toHaveAttribute('aria-current', 'page');
+  expect(await page.evaluate(() => scrollY)).toBe(avant);
+  expect(await page.locator('#pdf-miniatures').evaluate(e => e.scrollLeft)).toBeGreaterThan(0);
+  await expect.poll(() => pixelsSombres(page, '.pdf-mini[data-page="30"] canvas')).toBeGreaterThan(20);   // rendu paresseux dans le bandeau
+});
