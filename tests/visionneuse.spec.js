@@ -183,20 +183,23 @@ test('molette : défile dans la page, puis page voisine au bord ; un seul change
   await expect(numero(page)).toHaveValue('1');
   await expect.poll(async () => (await defil()).bas).toBeLessThanOrEqual(1);
 
+  // Souris tournée en continu (un cran toutes les 80 ms) au bas de la page 1 : page 2, qui défile
+  // ensuite normalement (le verrou n'est pas prolongé par des crans réguliers)
+  await calme();
+  for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 100); await page.waitForTimeout(80); }
+  await expect(numero(page)).toHaveValue('2');
+  await expect.poll(async () => (await defil()).haut).toBeGreaterThan(0);
+
   // Petits pas (pavé tactile) cumulés jusqu'au seuil (50) avant de changer de page
   await calme();
   await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
   for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 12);
   await page.waitForTimeout(100);
-  await expect(numero(page)).toHaveValue('1');
-  await page.mouse.wheel(0, 12);
   await expect(numero(page)).toHaveValue('2');
+  await page.mouse.wheel(0, 12);
+  await expect(numero(page)).toHaveValue('3');
 
   // Dernière page, en bas : rien, et la molette garde son rôle natif
-  await calme();
-  await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
-  await page.mouse.wheel(0, 100);
-  await expect(numero(page)).toHaveValue('3');
   await calme();
   await scene.evaluate(s => { s.scrollTop = s.scrollHeight; });
   const n = await page.evaluate(() => __empeche.length);
@@ -223,7 +226,8 @@ test('molette : défile dans la page, puis page voisine au bord ; un seul change
   await expect(numero(page)).toHaveValue('1');
   await page.mouse.move(b.x + b.width / 2, b.y + 100);   // le clic sur Zoom arrière a déplacé le pointeur
   await calme();
-  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 100);
+  // Inertie du pavé tactile : élan qui décroît sur plus de 200 ms → une seule page
+  for (const d of [120, 100, 80, 60, 40, 20]) { await page.mouse.wheel(0, d); await page.waitForTimeout(60); }
   await expect(numero(page)).toHaveValue('2');
   await page.waitForTimeout(100);
   await expect(numero(page)).toHaveValue('2');

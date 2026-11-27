@@ -83,7 +83,7 @@
       if (err && err.name === 'RenderingCancelledException') return;
       if (mon !== jetonRendu) return;
       q.scene.replaceChildren();   // pas l'ancienne page sous le nouveau numéro
-      erreurRendu = true;
+      erreurRendu = true; arriveeVoulue = null;
       message('Cette page ne peut pas être affichée (' + ((err && err.message) || err) + ').', true);
     }
   }
