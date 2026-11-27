@@ -121,6 +121,37 @@ test('zoom : +, −, bornes, Ctrl +/−, ajuster à la largeur', async ({ page }
   await expect(largeur).toHaveAttribute('aria-pressed', 'true');
 });
 
+// Demande de Jo : Ctrl + molette zoome le PDF seul, pas tout le navigateur
+test('Ctrl + molette : zoom du PDF, zoom du navigateur empêché ; molette seule : défilement', async ({ page }) => {
+  await ouvrirDoc(page);
+  const zoom = page.locator('#pdf-zoom');
+  await page.getByRole('button', { name: 'Zoom avant' }).click();   // niveau connu, hors ajustement
+  const depart = parseInt(await zoom.textContent(), 10);
+  await page.evaluate(() => { window.__empeche = []; window.addEventListener('wheel', e => __empeche.push(e.defaultPrevented)); });
+  const b = await page.locator('#pdf-scene').boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + 100);
+
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -100);                                    // un cran vers le haut : zoom avant
+  await expect.poll(async () => parseInt(await zoom.textContent(), 10)).toBeGreaterThan(depart);
+  const agrandi = parseInt(await zoom.textContent(), 10);
+  await page.mouse.wheel(0, 100);                                     // un cran vers le bas : zoom arrière
+  await expect.poll(async () => parseInt(await zoom.textContent(), 10)).toBe(depart);
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -12);        // pincement : 4 petits pas (48) → rien
+  await page.waitForTimeout(100);
+  await expect(zoom).toHaveText(depart + ' %');
+  await page.mouse.wheel(0, -12);                                     // 5e pas : seuil atteint → un niveau
+  await expect(zoom).toHaveText(agrandi + ' %');
+  await page.keyboard.up('Control');
+  await expect.poll(() => page.evaluate(() => __empeche.length)).toBe(7);
+  expect(await page.evaluate(() => __empeche.every(Boolean))).toBe(true);
+
+  await page.mouse.wheel(0, 100);                                     // sans Ctrl : pas de zoom, le navigateur garde la main
+  await expect.poll(() => page.evaluate(() => __empeche.length)).toBe(8);
+  expect(await page.evaluate(() => __empeche[7])).toBe(false);
+  await expect(zoom).toHaveText(agrandi + ' %');
+});
+
 test('l\'ajustement à la largeur suit la taille de la fenêtre', async ({ page }) => {
   await ouvrirDoc(page);
   const large = await largeurCanvas(page);

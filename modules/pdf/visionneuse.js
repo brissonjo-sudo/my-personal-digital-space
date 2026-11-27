@@ -104,6 +104,18 @@
     afficher();
   }
 
+  // Ctrl + molette sur le document (et pincement du pavé tactile, qui arrive en ctrlKey) : zoom du PDF,
+  // pas de la page. Un cran ≈ 100 px ; les petits pas du pincement sont cumulés jusqu'à 50.
+  let cumul = 0;
+  function surMolette(e) {
+    if (!e.ctrlKey || !modele.liste.length) return;
+    e.preventDefault();
+    cumul += e.deltaY * (e.deltaMode ? 40 : 1);   // deltaMode 1 (lignes, Firefox) ramené en pixels
+    if (Math.abs(cumul) < 50) return;
+    changerZoom(cumul < 0 ? 1 : -1);
+    cumul = 0;
+  }
+
   // Aligne tout l'affichage sur le modèle après une action ; la page courante est suivie
   // (même page, nouvelle position) ou, si elle a disparu, la position est bornée.
   function rafraichir({ rendre } = {}) {
@@ -246,6 +258,7 @@
     q.moins.addEventListener('click', () => changerZoom(-1));
     q.plus.addEventListener('click', () => changerZoom(1));
     q.largeur.addEventListener('click', () => { ajuste = true; afficher(); });
+    q.scene.addEventListener('wheel', surMolette, { passive: false });   // passive: false, sinon preventDefault ignoré
 
     // Glisser-déposer sur tout le module (compteur : pas de clignotement sur les enfants)
     let survols = 0;
