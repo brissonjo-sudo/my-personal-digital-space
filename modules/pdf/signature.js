@@ -1,6 +1,7 @@
 // Module PDF — signature : fenêtre modale (dessiner, ou importer une image dont le fond est retiré).
 // Valider produit { url (PNG en data URL), w, h (pixels) } rogné aux pixels visibles. La signature de la
-// session reste UNIQUEMENT dans cette variable : ni localStorage, ni IndexedDB (elle disparaît au rechargement).
+// session reste dans cette variable (elle disparaît au rechargement) ; elle n'est enregistrée sur
+// l'appareil que si l'utilisateur le demande, chiffrée par sa phrase secrète (coffre.js).
 // Publie MPDS.pdfSignature.{ ouvrir(surValide), courante() }.
 (() => {
   'use strict';
@@ -37,8 +38,9 @@
       e.stopImmediatePropagation(); e.preventDefault();
       if (e.key === 'Escape') fermer(); else dlg.focus();
     };
-    const fermer = () => { ouverte = false; document.removeEventListener('keydown', garde, true); fond.remove(); if (avant && avant.focus) avant.focus(); };
-    const finir = sig => { session = sig; fermer(); surValide(sig); };
+    let fermee = false;
+    const fermer = () => { fermee = true; ouverte = false; document.removeEventListener('keydown', garde, true); fond.remove(); if (avant && avant.focus) avant.focus(); };
+    const finir = sig => { if (fermee) return; session = sig; fermer(); surValide(sig); };   // fermée pendant le chiffrement : rien n'est posé
 
     // ---- Onglet Dessiner ----
     const cv = el('canvas', { className: 'pdf-sig-canvas', width: 640, height: 220 });
@@ -124,7 +126,7 @@
       onglet = id; dire('');
       for (const k in tabs) { tabs[k].t.setAttribute('aria-selected', String(k === id)); tabs[k].t.tabIndex = k === id ? 0 : -1; tabs[k].pan.hidden = k !== id; }
     }
-    function valider() {
+    async function valider() {
       let c = null;
       if (onglet === 'dessin') c = trace ? MPDS.pdfDetourage.rogner(cv) : null;
       else if (source) {
@@ -133,14 +135,55 @@
         c = MPDS.pdfDetourage.rogner(tmp);
       }
       if (!c) { dire(onglet === 'dessin' ? 'Dessinez d\'abord votre signature.' : source ? 'Aucun trait visible : réduisez la tolérance.' : 'Choisissez d\'abord une image.'); return; }
-      finir({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
+      const sig = { url: c.toDataURL('image/png'), w: c.width, h: c.height };
+      if (garder && garder.checked) {
+        if (phrase1.value !== phrase2.value) { dire('Les deux phrases secrètes ne correspondent pas.'); return; }
+        if (!await chiffrer(() => MPDS.pdfCoffre.enregistrer(sig, phrase1.value))) return;   // échec : rien n'est posé
+      }
+      finir(sig);
+    }
+    // Calcul de clé (PBKDF2) : de l'ordre d'une seconde ; un second clic pendant ce temps est ignoré
+    let occupe = false;
+    async function chiffrer(action) {
+      if (occupe) return false;
+      occupe = true; dire('Chiffrement en cours…');
+      try { const r = await action(); dire(''); return r || true; }
+      catch (err) { dire(err.name === 'Coffre' ? err.message : 'Erreur de chiffrement (' + err.message + ').'); return false; }
+      finally { occupe = false; }
+    }
+
+    // ---- Signature enregistrée sur cet appareil (coffre.js) ----
+    const coffre = MPDS.pdfCoffre, champ = (id, autocomplete) => el('input', { type: 'password', id, autocomplete, spellcheck: false });
+    let garder = null, phrase1 = null, phrase2 = null, blocCoffre = null;
+    if (coffre.disponible()) {
+      phrase1 = champ('pdf-sig-phrase', 'new-password'); phrase2 = champ('pdf-sig-phrase2', 'new-password');
+      garder = el('input', { type: 'checkbox', id: 'pdf-sig-garder' });
+      const champs = el('div', { className: 'pdf-modale-ligne', hidden: true },
+        el('label', {}, 'Phrase secrète (' + coffre.PHRASE_MIN + ' caractères au moins) ', phrase1), el('label', {}, 'Confirmer la phrase ', phrase2));
+      garder.addEventListener('change', () => { champs.hidden = !garder.checked; if (garder.checked) phrase1.focus(); });
+      blocCoffre = el('div', {}, el('label', { className: 'pdf-modale-ligne' }, garder,
+        ' Enregistrer sur cet appareil, chiffrée par une phrase secrète' + (coffre.existe() ? ' (remplace la signature enregistrée)' : '')), champs);
     }
     dlg.append(el('h2', { id: 'pdf-modale-titre', textContent: 'Signature' }));
     if (session) {
       const img = el('img', { src: session.url, alt: 'Signature créée pendant cette session', className: 'pdf-damier pdf-sig-session' });
       dlg.append(el('div', { className: 'pdf-modale-ligne' }, img, bouton('Réutiliser cette signature', '', () => finir(session))));
     }
-    dlg.append(onglets, panDessin, panImport, msg, el('div', { className: 'pdf-modale-ligne' }, bouton('Annuler', '', fermer), bouton('Valider', 'pdf-btn-primaire', valider)));
+    if (coffre.existe()) {
+      const phrase = champ('pdf-sig-phrase-ouvrir', 'current-password');
+      const deverrouiller = async () => { const sig = await chiffrer(() => coffre.ouvrir(phrase.value)); if (sig) finir(sig); };
+      phrase.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); deverrouiller(); } });
+      const ligne = el('div', { className: 'pdf-modale-ligne' }, el('label', {}, 'Signature enregistrée sur cet appareil, phrase secrète ', phrase),
+        bouton('Utiliser la signature enregistrée', '', deverrouiller),
+        bouton('Oublier la signature enregistrée', '', () => {
+          if (!confirm('Supprimer la signature enregistrée sur cet appareil ? Elle ne pourra pas être récupérée.')) return;
+          coffre.oublier(); ligne.remove(); dire('Signature enregistrée supprimée de cet appareil.');
+        }));
+      dlg.append(ligne);
+    }
+    dlg.append(onglets, panDessin, panImport);
+    if (blocCoffre) dlg.append(blocCoffre);
+    dlg.append(msg, el('div', { className: 'pdf-modale-ligne' }, bouton('Annuler', '', fermer), bouton('Valider', 'pdf-btn-primaire', valider)));
     choisir('dessin');
 
     // Clavier : Échap ferme, Tab reste dans la fenêtre, flèches entre onglets ; rien ne remonte aux raccourcis du module

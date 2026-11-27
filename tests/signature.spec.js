@@ -306,6 +306,132 @@ test('signature réutilisable pendant la session, absente après rechargement, r
   expect(await page.evaluate(() => MPDS.pdfSignature.courante())).toBeNull();
 });
 
+// ---- Signature enregistrée sur l'appareil, chiffrée par une phrase secrète (coffre.js) ----
+const PHRASE = 'cheval correct agrafe';
+const coffreBrut = page => page.evaluate(() => localStorage.getItem('mpds-signature'));
+async function signerEtGarder(page, p1 = PHRASE, p2 = p1) {
+  await ouvrirModale(page);
+  await tracer(page, Z);
+  await page.locator('#pdf-sig-garder').check();
+  await page.locator('#pdf-sig-phrase').fill(p1);
+  await page.locator('#pdf-sig-phrase2').fill(p2);
+  await bouton(page, 'Valider').click();
+}
+
+test('signature enregistrée : chiffrée sur l\'appareil, retrouvée après rechargement avec la phrase seulement', async ({ page }) => {
+  await ouvrir(page);
+  await signerEtGarder(page);
+  await expect(dialogue(page)).toHaveCount(0);
+  await expect(bouton(page, 'Signature (S)')).toHaveAttribute('aria-pressed', 'true');
+  const url = await page.evaluate(() => MPDS.pdfSignature.courante().url);
+  const brut = await coffreBrut(page);
+  const r = JSON.parse(brut);
+  expect(r).toMatchObject({ v: 1, iterations: 600000 });
+  expect(Object.keys(r).sort()).toEqual(['donnees', 'iterations', 'iv', 'sel', 'v']);
+  expect(brut).not.toContain('data:image');                  // rien en clair : ni l'URL, ni le PNG (base64 « iVBOR »)
+  expect(brut).not.toContain('iVBOR');
+  expect(brut).not.toContain(PHRASE);
+
+  await ouvrirApp(page);                                     // rechargement : plus de signature en mémoire
+  await ouvrir(page);
+  await ouvrirModale(page);
+  await expect(dialogue(page).getByRole('button', { name: 'Réutiliser cette signature' })).toHaveCount(0);
+  await page.locator('#pdf-sig-phrase-ouvrir').fill('mauvaise phrase secrète');
+  await bouton(page, 'Utiliser la signature enregistrée').click();
+  await expect(dialogue(page).getByRole('alert')).toHaveText('Phrase secrète incorrecte.');
+  await expect(dialogue(page)).toBeVisible();
+  await page.locator('#pdf-sig-phrase-ouvrir').fill(PHRASE);
+  await page.locator('#pdf-sig-phrase-ouvrir').press('Enter');
+  await expect(dialogue(page)).toHaveCount(0);
+  await expect(bouton(page, 'Signature (S)')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => MPDS.pdfSignature.courante().url)).toBe(url);   // la même image, au pixel près
+  await cliquer(page, 300, 400);
+  await expect(annots(page, 'signature')).toHaveCount(1);
+  expect(await images(page, await exporter(page))).toHaveLength(1);
+});
+
+test('signature enregistrée : phrase trop courte ou mal confirmée refusée, rien d\'enregistré ni de posé', async ({ page }) => {
+  await ouvrir(page);
+  await signerEtGarder(page, 'court');
+  await expect(dialogue(page).getByRole('alert')).toHaveText('Phrase secrète trop courte : 10 caractères au moins.');
+  await page.locator('#pdf-sig-phrase').fill(PHRASE);
+  await page.locator('#pdf-sig-phrase2').fill(PHRASE + 'x');
+  await bouton(page, 'Valider').click();
+  await expect(dialogue(page).getByRole('alert')).toHaveText('Les deux phrases secrètes ne correspondent pas.');
+  await expect(dialogue(page)).toBeVisible();
+  expect(await coffreBrut(page)).toBeNull();
+  expect(await page.evaluate(() => MPDS.pdfSignature.courante())).toBeNull();
+  // Case décochée : la signature est posée comme avant, sans rien enregistrer
+  await page.locator('#pdf-sig-garder').uncheck();
+  await expect(page.locator('#pdf-sig-phrase')).toBeHidden();
+  await bouton(page, 'Valider').click();
+  await expect(dialogue(page)).toHaveCount(0);
+  expect(await coffreBrut(page)).toBeNull();
+});
+
+test('signature enregistrée : « Oublier » demande confirmation puis l\'efface', async ({ page }) => {
+  await ouvrir(page);
+  await signerEtGarder(page);
+  await expect(dialogue(page)).toHaveCount(0);
+  await ouvrirModale(page);
+  await expect(page.locator('label', { hasText: 'remplace la signature enregistrée' })).toHaveCount(1);
+  page.once('dialog', d => d.dismiss());
+  await bouton(page, 'Oublier la signature enregistrée').click();
+  expect(await coffreBrut(page)).not.toBeNull();             // confirmation refusée : rien d'effacé
+  page.once('dialog', d => d.accept());
+  await bouton(page, 'Oublier la signature enregistrée').click();
+  await expect(dialogue(page).getByRole('alert')).toHaveText('Signature enregistrée supprimée de cet appareil.');
+  await expect(bouton(page, 'Utiliser la signature enregistrée')).toHaveCount(0);
+  expect(await coffreBrut(page)).toBeNull();
+  await page.keyboard.press('Escape');
+  await ouvrirApp(page);
+  await ouvrir(page);
+  await ouvrirModale(page);
+  await expect(page.locator('#pdf-sig-phrase-ouvrir')).toHaveCount(0);
+});
+
+test('signature enregistrée : chiffré altéré, itérations démesurées et contenu non PNG refusés', async ({ page }) => {
+  await ouvrir(page);
+  await signerEtGarder(page);
+  await expect(dialogue(page)).toHaveCount(0);
+  const essai = async (brut, attendu) => {
+    await page.evaluate(b => localStorage.setItem('mpds-signature', b), brut);
+    await ouvrirApp(page);
+    await ouvrir(page);
+    await ouvrirModale(page);
+    await page.locator('#pdf-sig-phrase-ouvrir').fill(PHRASE);
+    await bouton(page, 'Utiliser la signature enregistrée').click();
+    await expect(dialogue(page).getByRole('alert')).toHaveText(attendu);
+    expect(await page.evaluate(() => MPDS.pdfSignature.courante())).toBeNull();
+  };
+  const r = JSON.parse(await coffreBrut(page));
+  const d = r.donnees, altere = d.slice(0, 10) + (d[10] === 'A' ? 'B' : 'A') + d.slice(11);
+  await essai(JSON.stringify({ ...r, donnees: altere }), 'Phrase secrète incorrecte.');
+  await essai(JSON.stringify({ ...r, iterations: 1e9 }), 'Signature enregistrée illisible : oubliez-la puis enregistrez-la de nouveau.');
+  await essai('pas du JSON', 'Signature enregistrée illisible : oubliez-la puis enregistrez-la de nouveau.');
+  // Chiffré authentique avec la bonne phrase, mais contenu étranger (autre page de la même origine) : refusé
+  const etranger = await page.evaluate(async phrase => {
+    const e = new TextEncoder(), b64 = o => btoa(String.fromCharCode(...o));
+    const sel = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const base = await crypto.subtle.importKey('raw', e.encode(phrase), 'PBKDF2', false, ['deriveKey']);
+    const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: sel, iterations: 100000 }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const c = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, e.encode(JSON.stringify({ url: 'data:image/svg+xml;base64,PHN2Zz4=', w: 10, h: 10 }))));
+    return JSON.stringify({ v: 1, iterations: 100000, sel: b64(sel), iv: b64(iv), donnees: b64(c) });
+  }, PHRASE);
+  await essai(etranger, 'Signature enregistrée illisible : oubliez-la puis enregistrez-la de nouveau.');
+});
+
+test('signature enregistrée : fenêtre fermée pendant le chiffrement, rien n\'est posé', async ({ page }) => {
+  await ouvrir(page);
+  await signerEtGarder(page);
+  await page.keyboard.press('Escape');                       // pendant le calcul de clé (PBKDF2)
+  await expect(dialogue(page)).toHaveCount(0);
+  await expect.poll(() => coffreBrut(page)).not.toBeNull(); // le chiffrement se termine
+  await page.waitForTimeout(200);
+  await expect(bouton(page, 'Signature (S)')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => MPDS.pdfSignature.courante())).toBeNull();
+});
+
 test('signature sur page pivotée : posée droite, exportée au même endroit', async ({ page }) => {
   await ouvrir(page);
   await bouton(page, 'Pivoter à droite').click();

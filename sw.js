@@ -41,6 +41,7 @@ const PRECACHE = [
   './modules/pdf/annotations.js',
   './modules/pdf/calque.js',
   './modules/pdf/detourage.js',
+  './modules/pdf/coffre.js',
   './modules/pdf/signature.js',
   './modules/pdf/tampons.js',
   './modules/pdf/outils.js',
