@@ -331,6 +331,12 @@ test('signature enregistrée : chiffrée sur l\'appareil, retrouvée après rech
   expect(brut).not.toContain('data:image');                  // rien en clair : ni l'URL, ni le PNG (base64 « iVBOR »)
   expect(brut).not.toContain('iVBOR');
   expect(brut).not.toContain(PHRASE);
+  // Même signature, même phrase : nouveau sel et nouvel IV à chaque enregistrement (AES-GCM : jamais deux fois le même IV)
+  await page.evaluate(p => MPDS.pdfCoffre.enregistrer(MPDS.pdfSignature.courante(), p), PHRASE);
+  const r2 = JSON.parse(await coffreBrut(page));
+  expect(r2.sel).not.toBe(r.sel);
+  expect(r2.iv).not.toBe(r.iv);
+  expect(r2.donnees).not.toBe(r.donnees);
 
   await ouvrirApp(page);                                     // rechargement : plus de signature en mémoire
   await ouvrir(page);
@@ -339,6 +345,7 @@ test('signature enregistrée : chiffrée sur l\'appareil, retrouvée après rech
   await page.locator('#pdf-sig-phrase-ouvrir').fill('mauvaise phrase secrète');
   await bouton(page, 'Utiliser la signature enregistrée').click();
   await expect(dialogue(page).getByRole('alert')).toHaveText('Phrase secrète incorrecte.');
+  await expect(dialogue(page).getByRole('alert')).not.toHaveClass(/pdf-modale-info/);   // erreur : en rouge
   await expect(dialogue(page)).toBeVisible();
   await page.locator('#pdf-sig-phrase-ouvrir').fill(PHRASE);
   await page.locator('#pdf-sig-phrase-ouvrir').press('Enter');
@@ -381,6 +388,7 @@ test('signature enregistrée : « Oublier » demande confirmation puis l\'efface
   page.once('dialog', d => d.accept());
   await bouton(page, 'Oublier la signature enregistrée').click();
   await expect(dialogue(page).getByRole('alert')).toHaveText('Signature enregistrée supprimée de cet appareil.');
+  await expect(dialogue(page).getByRole('alert')).toHaveClass(/pdf-modale-info/);       // réussite : pas en rouge
   await expect(bouton(page, 'Utiliser la signature enregistrée')).toHaveCount(0);
   expect(await coffreBrut(page)).toBeNull();
   await page.keyboard.press('Escape');

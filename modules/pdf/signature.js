@@ -28,7 +28,7 @@
     let onglet = 'dessin', source = null, trace = false;
 
     const msg = el('p', { className: 'pdf-modale-msg', role: 'alert' });
-    const dire = t => { msg.textContent = t; };
+    const dire = (t, info) => { msg.textContent = t; msg.classList.toggle('pdf-modale-info', !!info); };   // info : progression ou réussite, pas en rouge
     const fond = el('div', { className: 'pdf-modale-fond' });
     const dlg = el('div', { className: 'pdf-modale', role: 'dialog', tabIndex: -1 });   // focalisable : un clic sur le canvas y ramène le focus
     dlg.setAttribute('aria-modal', 'true'); dlg.setAttribute('aria-labelledby', 'pdf-modale-titre');
@@ -138,15 +138,15 @@
       const sig = { url: c.toDataURL('image/png'), w: c.width, h: c.height };
       if (garder && garder.checked) {
         if (phrase1.value !== phrase2.value) { dire('Les deux phrases secrètes ne correspondent pas.'); return; }
-        if (!await chiffrer(() => MPDS.pdfCoffre.enregistrer(sig, phrase1.value))) return;   // échec : rien n'est posé
+        if (!await chiffrer('Chiffrement en cours…', () => MPDS.pdfCoffre.enregistrer(sig, phrase1.value))) return;   // échec : rien n'est posé
       }
       finir(sig);
     }
     // Calcul de clé (PBKDF2) : de l'ordre d'une seconde ; un second clic pendant ce temps est ignoré
     let occupe = false;
-    async function chiffrer(action) {
+    async function chiffrer(attente, action) {
       if (occupe) return false;
-      occupe = true; dire('Chiffrement en cours…');
+      occupe = true; dire(attente, true);
       try { const r = await action(); dire(''); return r || true; }
       catch (err) { dire(err.name === 'Coffre' ? err.message : 'Erreur de chiffrement (' + err.message + ').'); return false; }
       finally { occupe = false; }
@@ -159,10 +159,11 @@
       phrase1 = champ('pdf-sig-phrase', 'new-password'); phrase2 = champ('pdf-sig-phrase2', 'new-password');
       garder = el('input', { type: 'checkbox', id: 'pdf-sig-garder' });
       const champs = el('div', { className: 'pdf-modale-ligne', hidden: true },
-        el('label', {}, 'Phrase secrète (' + coffre.PHRASE_MIN + ' caractères au moins) ', phrase1), el('label', {}, 'Confirmer la phrase ', phrase2));
+        el('label', { className: 'pdf-sig-champ' }, 'Phrase secrète (' + coffre.PHRASE_MIN + ' caractères au moins)', phrase1),
+        el('label', { className: 'pdf-sig-champ' }, 'Confirmer la phrase', phrase2));
       garder.addEventListener('change', () => { champs.hidden = !garder.checked; if (garder.checked) phrase1.focus(); });
-      blocCoffre = el('div', {}, el('label', { className: 'pdf-modale-ligne' }, garder,
-        ' Enregistrer sur cet appareil, chiffrée par une phrase secrète' + (coffre.existe() ? ' (remplace la signature enregistrée)' : '')), champs);
+      blocCoffre = el('div', { className: 'pdf-sig-coffre' }, el('label', { className: 'pdf-sig-case' }, garder,
+        el('span', { textContent: 'Enregistrer sur cet appareil, chiffrée par une phrase secrète' + (coffre.existe() ? ' (remplace la signature enregistrée)' : '') })), champs);
     }
     dlg.append(el('h2', { id: 'pdf-modale-titre', textContent: 'Signature' }));
     if (session) {
@@ -171,14 +172,15 @@
     }
     if (coffre.existe()) {
       const phrase = champ('pdf-sig-phrase-ouvrir', 'current-password');
-      const deverrouiller = async () => { const sig = await chiffrer(() => coffre.ouvrir(phrase.value)); if (sig) finir(sig); };
+      const deverrouiller = async () => { const sig = await chiffrer('Déchiffrement en cours…', () => coffre.ouvrir(phrase.value)); if (sig) finir(sig); };
       phrase.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); deverrouiller(); } });
-      const ligne = el('div', { className: 'pdf-modale-ligne' }, el('label', {}, 'Signature enregistrée sur cet appareil, phrase secrète ', phrase),
-        bouton('Utiliser la signature enregistrée', '', deverrouiller),
-        bouton('Oublier la signature enregistrée', '', () => {
-          if (!confirm('Supprimer la signature enregistrée sur cet appareil ? Elle ne pourra pas être récupérée.')) return;
-          coffre.oublier(); ligne.remove(); dire('Signature enregistrée supprimée de cet appareil.');
-        }));
+      const ligne = el('div', { className: 'pdf-sig-coffre' },
+        el('label', { className: 'pdf-sig-champ' }, 'Signature enregistrée sur cet appareil : phrase secrète', phrase),
+        el('div', { className: 'pdf-modale-ligne' }, bouton('Utiliser la signature enregistrée', 'pdf-btn-primaire', deverrouiller),
+          bouton('Oublier la signature enregistrée', '', () => {
+            if (!confirm('Supprimer la signature enregistrée sur cet appareil ? Elle ne pourra pas être récupérée.')) return;
+            coffre.oublier(); ligne.remove(); dire('Signature enregistrée supprimée de cet appareil.', true);
+          })));
       dlg.append(ligne);
     }
     dlg.append(onglets, panDessin, panImport);
