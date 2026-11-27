@@ -48,12 +48,12 @@
     const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * cv.width / b.width, (e.clientY - b.top) * cv.height / b.height]; };
     // doigt : pointeur qui trace ; un second (paume) est ignoré, sauf un stylet arrivé après un contact au
     // doigt : il l'emporte et le trait de la paume est effacé (image d'avant son appui)
-    let dernier = null, doigt = null, stylet = false, image0 = null;
+    let dernier = null, doigt = null, genre = '', image0 = null;
     cv.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
-      if (dernier) { if (e.pointerType !== 'pen' || stylet) return; g.putImageData(image0, 0, 0); }
+      if (dernier) { if (e.pointerType !== 'pen' || genre !== 'touch') return; g.putImageData(image0, 0, 0); }
       else image0 = g.getImageData(0, 0, cv.width, cv.height);
-      doigt = e.pointerId; stylet = e.pointerType === 'pen';
+      doigt = e.pointerId; genre = e.pointerType;
       cv.setPointerCapture(e.pointerId);
       dernier = pos(e); trace = true; dire('');
       g.beginPath(); g.moveTo(...dernier); g.lineTo(dernier[0] + 0.1, dernier[1]); g.stroke();   // un simple clic laisse un point

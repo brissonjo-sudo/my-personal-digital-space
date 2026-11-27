@@ -123,7 +123,7 @@
     function debut(e) {
       if (e.button !== 0 || editeur) return;   // saisie ouverte : sa perte de focus valide
       if (geste) {   // 2e pointeur : ignoré (paume), sauf un stylet arrivé après un contact au doigt (la paume posée d'abord)
-        if (e.pointerType !== 'pen' || geste.stylet) return;
+        if (e.pointerType !== 'pen' || geste.genre !== 'touch') return;
         abandonner();
       }
       const p = pt(e), o = r.outil, g = e.target.closest('[data-id]');
@@ -131,7 +131,7 @@
       if (o === 'sel' && selection && e.target.classList.contains('pdf-poignee')) {   // poignée d'angle : agrandir / réduire
         const b = e.target.getBoundingClientRect(), h = pt({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
         const c = ve(selection.x, selection.y);
-        geste = { type: 'redim', id: e.pointerId, stylet: e.pointerType === 'pen', a: selection, depart: p, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
+        geste = { type: 'redim', id: e.pointerId, genre: e.pointerType, a: selection, depart: p, avant: geom(selection), c, d0: Math.hypot(h.x - c.x, h.y - c.y) || 1, bouge: false };
         svg.setPointerCapture(e.pointerId);
         return;
       }
@@ -141,7 +141,7 @@
         redessiner();
         geste = a ? { type: 'dep', a, depart: p, avant: geom(a), bouge: false } : null;
       } else geste = { type: o, depart: p, fin: p, pts: [p] };
-      if (geste) { Object.assign(geste, { id: e.pointerId, stylet: e.pointerType === 'pen' }); svg.setPointerCapture(e.pointerId); }
+      if (geste) { Object.assign(geste, { id: e.pointerId, genre: e.pointerType }); svg.setPointerCapture(e.pointerId); }
     }
 
     // Le geste appartient au pointeur qui l'a commencé : les mouvements, le lever ou l'annulation d'un
