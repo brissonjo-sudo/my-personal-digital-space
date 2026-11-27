@@ -327,4 +327,5 @@ test('téléphone : document avant le panneau Pages, visible dès l\'ouverture, 
   await expect(page.locator('.pdf-mini[data-page="30"]')).toHaveAttribute('aria-current', 'page');
   expect(await page.evaluate(() => scrollY)).toBe(avant);
   expect(await page.locator('#pdf-miniatures').evaluate(e => e.scrollLeft)).toBeGreaterThan(0);
+  await expect.poll(() => pixelsSombres(page, '.pdf-mini[data-page="30"] canvas')).toBeGreaterThan(20);   // rendu paresseux dans le bandeau
 });

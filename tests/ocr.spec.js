@@ -132,6 +132,25 @@ for (const [confiance, attendu] of [[16, 'warn'], [95, 'ok']]) {
   });
 }
 
+// Relecture : une page blanche (verso d'un recto verso) est lue à 0 % par le vrai moteur ; en moyenne simple, un
+// bon scan tombait à 48 % et recevait l'alerte. Moyenne pondérée par les caractères ; aucun texte : message dédié.
+for (const [cas, lectures, statut, attendu] of [
+  ['recto lisible + verso blanc', [[95, 'Arrêté municipal numéro 42'], [0, null]], 'ok', 'Texte reconnu par OCR → arrete.md (à relire)'],
+  ['deux pages blanches', [[0, null], [0, null]], 'warn', "Aucun texte reconnu par l'OCR : pages blanches, ou image sans texte."],
+]) {
+  test(`OCR, ${cas} : ${statut}`, async ({ page }) => {
+    const bouton = await deposerScan(page);   // PDF scanné de deux pages
+    const donnees = lectures.map(([c, t]) => ({ confidence: c, ...(t ? donneesOcr([[c, t]]) : { blocks: [] }) }));
+    await page.evaluate(d => { let n = 0; window.Tesseract = { createWorker: async () => ({ recognize: async () => ({ data: d[n++] }), terminate: async () => {} }) }; }, donnees);
+    await bouton.click();
+    await expect(page.locator('.journal-item')).toHaveClass(new RegExp(statut), { timeout: 60_000 });
+    await expect(page.locator('.journal-msg')).toHaveText(attendu);
+    const md = await page.evaluate(() => resultats[0].md);
+    if (statut === 'ok') expect(md).toContain('confiance moyenne 95 % : à relire');
+    else expect(md).not.toContain('confiance moyenne');
+  });
+}
+
 // Données Tesseract fabriquées : une ligne par entrée [confiance, texte]
 const donneesOcr = lignes => ({ blocks: [{ paragraphs: [{ lines: lignes.map(([confidence, text], i) => ({
   confidence, text, bbox: { x0: 0, x1: 500, y0: i * 20, y1: i * 20 + 12 } })) }] }] });

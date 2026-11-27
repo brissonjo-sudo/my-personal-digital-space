@@ -541,6 +541,7 @@ const OCR_CONFIANCE_MIN = 50;
 // Confiance moyenne d'un document sous laquelle son texte est probablement inexploitable (copie trop
 // dégradée) : mesuré 94-95 % sur des scans lisibles, 16 % sur du charabia
 const OCR_CONFIANCE_DOC = 60;
+const OCR_SANS_TEXTE = 'Aucun texte reconnu par l\'OCR : pages blanches, ou image sans texte.';
 function lignesOcr(data) {
   const lignes = (data.blocks || []).flatMap((b, bloc) => (b.paragraphs || []).flatMap(p => p.lines || []).map(l => ({
     texte: l.text.replace(/\s+/g, ' ').trim(),
@@ -617,13 +618,17 @@ async function ocrDocument(fichier, nom, progression) {
         pages.push({ lignes, haut: 0, bas: -canvas.height, hauteur: canvas.height });
       }
       numerosOcr.push(i);
-      confiances.push(data.confidence);
+      confiances.push({ c: data.confidence, n: lignes.reduce((n, l) => n + l.texte.length, 0) });
       if (page) page.cleanup();
     }
     canvas.width = canvas.height = 0;   // libérer la mémoire de l'image
     if (!confiances.length) throw new Error('aucune page scannée à reconnaître');
 
-    const confiance = Math.round(confiances.reduce((s, c) => s + c, 0) / confiances.length);
+    // Moyenne pondérée par les caractères reconnus : une page blanche (verso d'un recto verso) est lue à
+    // 0 % et ferait passer un bon scan pour une copie dégradée. Aucun texte du tout : rien n'est jugé.
+    const car = confiances.reduce((s, x) => s + x.n, 0);
+    if (!car) return { md: `# ${baseName(nom)}\n\n> ⚠️ ${OCR_SANS_TEXTE}\n`, confiance: null };
+    const confiance = Math.round(confiances.reduce((s, x) => s + x.c * x.n, 0) / car);
     const portee = numerosOcr.length === nbPages ? 'Texte obtenu' : `${libellePages(numerosOcr)} : texte obtenu`;
     const blocs = [`# ${baseName(nom)}`,
       `> ${portee} par reconnaissance optique (OCR), confiance moyenne ${confiance} % : ` +
@@ -659,11 +664,11 @@ function lancerOcr(li, resultat, bouton) {
       const { md, confiance } = await ocrDocument(resultat.fichier, resultat.nom, t => { msg.textContent = t; });
       resultat.md = md;
       delete resultat.fichier;
-      const faible = confiance < OCR_CONFIANCE_DOC;
-      li.className = 'journal-item ' + (faible ? 'warn' : 'ok');
-      iconeStatut(icone, faible ? '⚠️' : '✅');
-      msg.textContent = faible
-        ? `Texte reconnu par OCR → ${resultat.nomMd}, mais confiance très faible (${confiance} %) : copie probablement trop dégradée, renumérisez-la si possible.`
+      const sansTexte = confiance === null, faible = !sansTexte && confiance < OCR_CONFIANCE_DOC;
+      li.className = 'journal-item ' + (sansTexte || faible ? 'warn' : 'ok');
+      iconeStatut(icone, sansTexte || faible ? '⚠️' : '✅');
+      msg.textContent = sansTexte ? OCR_SANS_TEXTE
+        : faible ? `Texte reconnu par OCR → ${resultat.nomMd}, mais confiance très faible (${confiance} %) : copie probablement trop dégradée, renumérisez-la si possible.`
         : `Texte reconnu par OCR → ${resultat.nomMd} (à relire)`;
       bouton.remove();
     } catch (err) {
