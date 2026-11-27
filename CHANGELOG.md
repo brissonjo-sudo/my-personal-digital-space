@@ -2,6 +2,9 @@
 
 ## [Non publié]
 
+### Ajouté
+- 2026-11-27 — **Visionneuse : Ctrl + molette zoome le PDF**, pas toute la page du navigateur, quand le pointeur est sur le document. Molette vers le haut : zoom avant ; vers le bas : zoom arrière, par les mêmes niveaux que les boutons. Le pincement du pavé tactile (envoyé par le navigateur comme Ctrl + molette) zoome aussi le PDF ; ses petits pas sont cumulés pour ne pas sauter plusieurs niveaux d'un coup. Sans Ctrl, la molette fait défiler comme avant ; hors du document, ou sans document ouvert, Ctrl + molette reste le zoom du navigateur.
+
 ### Corrigé
 - 2026-11-27 — **Constats des essais réels** (site en ligne, téléphone émulé, scans fabriqués).
   - **OCR d'une copie trop dégradée** : sous 60 % de confiance moyenne (mesuré : 94-95 % sur des scans lisibles, 16-17 % sur du charabia), la ligne du journal passe en avertissement — « confiance très faible (17 %) : copie probablement trop dégradée, renumérisez-la si possible » — et le Markdown l'annonce au lieu de « à relire ». La confiance moyenne est désormais pondérée par les caractères reconnus : une page blanche (verso d'un recto verso), lue à 0 %, faisait tomber un bon scan à 48 %. Sans aucun texte reconnu : « Aucun texte reconnu par l'OCR : pages blanches, ou image sans texte ».
