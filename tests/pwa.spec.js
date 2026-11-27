@@ -32,6 +32,24 @@ test('hors-ligne après la première visite', async ({ page, context }) => {
   expect(r.resultats[0].md).toContain('| 1 | 2 |');
 });
 
+// Essai réel (Ctrl + molette) : après un déploiement, le rechargement montrait encore l'ancien
+// script, servi par le cache HTTP du navigateur (GitHub Pages : max-age=600)
+test('page et scripts locaux redemandés au serveur (revalidation), pas pris dans le cache HTTP', async ({ page, context }) => {
+  await ouvrirApp(page);
+  await page.waitForFunction(() => navigator.serviceWorker.controller);
+  const [sw] = context.serviceWorkers();
+  await sw.evaluate(() => {
+    const f = self.fetch; self.__modes = [];
+    self.fetch = (r, i) => { self.__modes.push([new URL(r.url || r).pathname, (i && i.cache) || r.cache]); return f.call(self, r, i); };
+  });
+  await page.goto('index.html');   // navigation ordinaire (un rechargement force déjà la page)
+  await expect(page.locator('#zone-depot')).toBeVisible();
+  const modes = Object.fromEntries(await sw.evaluate(() => self.__modes));
+  expect(modes['/app/index.html']).toBe('no-cache');
+  expect(modes['/app/modules/pdf/visionneuse.js']).toBe('no-cache');
+  expect(modes['/app/commun/style.css']).toBe('no-cache');
+});
+
 test('une page d\'erreur visitée ne remplace pas l\'application hors-ligne', async ({ page, context }) => {
   await ouvrirApp(page);
   await page.waitForFunction(() => navigator.serviceWorker.controller);

@@ -91,6 +91,11 @@ self.addEventListener('activate', event => {
   })());
 });
 
+// Réseau d'abord, revalidé auprès du serveur : un fetch ordinaire passe par le cache HTTP
+// du navigateur (GitHub Pages : max-age=600), et une mise à jour restait invisible jusqu'à
+// 10 minutes après le déploiement malgré le rechargement.
+const frais = req => fetch(req, { cache: 'no-cache' });
+
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -99,7 +104,7 @@ self.addEventListener('fetch', event => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const reseau = await fetch(req);
+        const reseau = await frais(req);
         // Seule la vraie page est conservée : une 404 ou une autre page visitée
         // remplacerait sinon l'application hors-ligne.
         if (reseau.ok && /\/(index\.html)?$/.test(new URL(req.url).pathname)) {
@@ -119,7 +124,7 @@ self.addEventListener('fetch', event => {
   if (LOCAUX.has(req.url)) {
     event.respondWith((async () => {
       try {
-        const reseau = await fetch(req);
+        const reseau = await frais(req);
         if (reseau.ok) (await caches.open(VERSION)).put(req, reseau.clone());
         return reseau;
       } catch {
