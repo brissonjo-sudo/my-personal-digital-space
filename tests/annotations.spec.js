@@ -517,6 +517,68 @@ test('un second pointeur pendant un tracé est ignoré', async ({ page }) => {
   await expect(page.locator('.pdf-apercu')).toHaveCount(0);
 });
 
+// Essai tactile (téléphone émulé) : la paume posée pendant un tracé faisait zigzaguer le trait entre le doigt et
+// elle, et son lever terminait le trait. Le geste n'écoute plus que le pointeur qui l'a commencé.
+test("paume pendant un tracé : ses mouvements, son lever et son annulation n'agissent pas", async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Dessin (D)');
+  const paume = async (type, x, y) => { const p = await ecran(page, x, y);
+    await page.evaluate(([type, p]) => document.querySelector('.pdf-calque').dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 7, pointerType: 'touch', clientX: p.x, clientY: p.y })), [type, p]); };
+  await appuyer(page, 100, 300);
+  await vers(page, 150, 300);
+  await paume('pointerdown', 200, 600);
+  await paume('pointermove', 210, 620);
+  await vers(page, 200, 300);
+  await paume('pointerup', 210, 620);      // la paume se lève : le trait continue
+  await paume('pointercancel', 210, 620);  // ni son annulation
+  await vers(page, 250, 300);
+  await page.mouse.up();
+  await expect(annots(page, 'dessin')).toHaveCount(1);
+  const b = await annots(page, 'dessin').first().evaluate(g => { const r = g.getBBox(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  expect(b.y + b.h).toBeLessThan(320);    // aucun point vers la paume (y = 600)
+  expect(b.x + b.w).toBeGreaterThan(240); // le trait a suivi le doigt jusqu'au bout
+  await expect(page.locator('.pdf-apercu')).toHaveCount(0);
+});
+
+// Stylet : la paume se pose souvent avant la pointe ; le stylet l'emporte et le début de tracé de la paume disparaît
+test('stylet après la paume : le stylet trace, la paume ne laisse rien', async ({ page }) => {
+  await ouvrir(page);
+  await page.evaluate(() => { Element.prototype.setPointerCapture = () => {}; });   // pointeurs synthétiques : pas de capture possible
+  await outil(page, 'Dessin (D)');
+  const pointeur = async (type, id, genre, x, y) => { const p = await ecran(page, x, y);
+    await page.evaluate(([type, id, genre, p]) => document.querySelector('.pdf-calque').dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: id, pointerType: genre, clientX: p.x, clientY: p.y })), [type, id, genre, p]); };
+  await pointeur('pointerdown', 7, 'touch', 200, 600);
+  await pointeur('pointermove', 7, 'touch', 230, 640);
+  await pointeur('pointerdown', 8, 'pen', 100, 300);
+  await pointeur('pointermove', 7, 'touch', 260, 660);   // la paume bouge encore : ignorée
+  for (const x of [150, 200, 250]) await pointeur('pointermove', 8, 'pen', x, 300);
+  await pointeur('pointerup', 8, 'pen', 250, 300);
+  await pointeur('pointerup', 7, 'touch', 260, 660);
+  await expect(annots(page, 'dessin')).toHaveCount(1);
+  const b = await annots(page, 'dessin').first().evaluate(g => { const r = g.getBBox(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  expect(b.y + b.h).toBeLessThan(320);
+  expect(b.x).toBeLessThan(110);
+  await expect(page.locator('.pdf-apercu')).toHaveCount(0);
+});
+
+test('stylet après la paume qui déplaçait un objet : l’objet revient à sa place', async ({ page }) => {
+  await ouvrir(page);
+  await outil(page, 'Surligneur (H)');
+  await surligner(page, 100, 300, 200, 340);
+  await outil(page, 'Sélection (V)');
+  await page.evaluate(() => { Element.prototype.setPointerCapture = () => {}; });   // pointeurs synthétiques : pas de capture possible
+  const pointeur = async (type, id, genre, x, y) => { const p = await ecran(page, x, y);
+    // l'appui vise l'objet touché ; la suite va au calque (ce que ferait la capture du pointeur)
+    await page.evaluate(([type, id, genre, p]) => (type === 'pointerdown' ? document.elementFromPoint(p.x, p.y) : document.querySelector('.pdf-calque')).dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: id, pointerType: genre, clientX: p.x, clientY: p.y })), [type, id, genre, p]); };
+  await pointeur('pointerdown', 7, 'touch', 150, 320);   // la paume tombe sur le surlignage et le traîne
+  await pointeur('pointermove', 7, 'touch', 190, 380);
+  await expect.poll(() => xSurlig(page)).toBeCloseTo(140, 0);
+  await pointeur('pointerdown', 8, 'pen', 400, 600);     // le stylet arrive ailleurs : le déplacement de la paume est défait
+  await pointeur('pointerup', 8, 'pen', 400, 600);
+  await pointeur('pointerup', 7, 'touch', 190, 380);
+  expect(await xSurlig(page)).toBeCloseTo(100, 0);
+});
+
 test('texte en cours de saisie : posé quand la page est redessinée (redimensionnement)', async ({ page }) => {
   await ouvrir(page);
   await page.locator('#pdf-largeur').click();

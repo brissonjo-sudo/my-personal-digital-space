@@ -132,6 +132,43 @@ test('signature dessinée : posée au clic, image dans le PDF exporté, pixels s
   expect(Math.abs(im[0].x + im[0].w / 2 - 300)).toBeLessThan(2);
 });
 
+// Essai tactile : une paume posée sur la zone de dessin traçait aussi (ses mouvements prolongeaient le trait)
+test('fenêtre : la paume posée pendant la signature ne trace rien', async ({ page }) => {
+  await ouvrir(page);
+  await ouvrirModale(page);
+  const b = await page.locator('.pdf-sig-canvas').boundingBox();
+  const paume = (type, fx, fy) => page.evaluate(([type, x, y]) => document.querySelector('.pdf-sig-canvas').dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 7, pointerType: 'touch', clientX: x, clientY: y })), [type, b.x + fx * b.width, b.y + fy * b.height]);
+  await page.mouse.move(b.x + 0.1 * b.width, b.y + 0.2 * b.height); await page.mouse.down();
+  await page.mouse.move(b.x + 0.3 * b.width, b.y + 0.2 * b.height, { steps: 5 });
+  await paume('pointerdown', 0.5, 0.9);
+  await paume('pointermove', 0.6, 0.9);
+  await paume('pointermove', 0.7, 0.9);
+  await paume('pointerup', 0.7, 0.9);
+  await page.mouse.move(b.x + 0.9 * b.width, b.y + 0.2 * b.height, { steps: 5 });   // le doigt trace encore après le lever de la paume
+  await page.mouse.up();
+  const encre = await page.locator('.pdf-sig-canvas').evaluate(cv => { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let haut = 0, bas = 0, droite = 0;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3] > 0) { if (y > cv.height * 0.5) bas++; else { haut++; if (x > cv.width * 0.8) droite++; } } return { haut, bas, droite }; });
+  expect(encre.bas, 'rien sous la paume').toBe(0);
+  expect(encre.droite, "le doigt a tracé jusqu'au bout").toBeGreaterThan(0);
+});
+
+test('fenêtre : stylet posé après la paume, le trait de la paume est effacé', async ({ page }) => {
+  await ouvrir(page);
+  await page.evaluate(() => { Element.prototype.setPointerCapture = () => {}; });   // pointeurs synthétiques : pas de capture possible
+  await ouvrirModale(page);
+  const b = await page.locator('.pdf-sig-canvas').boundingBox();
+  const p = (type, id, genre, fx, fy) => page.evaluate(([type, id, genre, x, y]) => document.querySelector('.pdf-sig-canvas').dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: id, pointerType: genre, clientX: x, clientY: y })), [type, id, genre, b.x + fx * b.width, b.y + fy * b.height]);
+  await p('pointerdown', 7, 'touch', 0.5, 0.9); await p('pointermove', 7, 'touch', 0.7, 0.9);   // la paume trace d'abord
+  await p('pointerdown', 8, 'pen', 0.1, 0.2);
+  for (const x of [0.3, 0.6, 0.9]) await p('pointermove', 8, 'pen', x, 0.2);
+  await p('pointermove', 7, 'touch', 0.8, 0.95);
+  await p('pointerup', 8, 'pen', 0.9, 0.2); await p('pointerup', 7, 'touch', 0.8, 0.95);
+  const encre = await page.locator('.pdf-sig-canvas').evaluate(cv => { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let haut = 0, bas = 0;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3] > 0) (y > cv.height * 0.5 ? bas++ : haut++); return { haut, bas }; });
+  expect(encre.bas, 'trait de la paume effacé').toBe(0);
+  expect(encre.haut, 'trait du stylet').toBeGreaterThan(0);
+});
+
 test('import : fond gris retiré par seuil, tolérance en direct, trait conservé, image rognée', async ({ page }) => {
   await ouvrir(page);
   await ouvrirModale(page);
