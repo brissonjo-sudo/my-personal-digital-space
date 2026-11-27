@@ -83,9 +83,17 @@
       }));
     }
 
+    // Amène la miniature dans le panneau sans faire défiler la fenêtre (scrollIntoView le ferait : sur
+    // téléphone, le panneau est sous le document et la page partirait hors de l'écran)
+    function montrer(el) {
+      const b = el.getBoundingClientRect(), r = conteneur.getBoundingClientRect();
+      if (b.top < r.top) conteneur.scrollTop += b.top - r.top; else if (b.bottom > r.bottom) conteneur.scrollTop += b.bottom - r.bottom;
+      if (b.left < r.left) conteneur.scrollLeft += b.left - r.left; else if (b.right > r.right) conteneur.scrollLeft += b.right - r.right;
+    }
+
     function marquer(n) {
       for (const it of items.values()) {
-        if (+it.btn.dataset.page === n) { it.btn.setAttribute('aria-current', 'page'); it.btn.scrollIntoView({ block: 'nearest' }); }
+        if (+it.btn.dataset.page === n) { it.btn.setAttribute('aria-current', 'page'); montrer(it.btn); }
         else it.btn.removeAttribute('aria-current');
       }
     }

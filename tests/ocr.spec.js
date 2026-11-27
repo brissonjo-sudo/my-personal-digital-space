@@ -111,6 +111,27 @@ test('moteur OCR inaccessible : message clair, nouvel essai possible', async ({ 
   expect(await page.evaluate(() => resultats[0].md)).toContain('semble être un scan');
 });
 
+// Essai réel : une copie très dégradée donnait du charabia (confiance 16 %) annoncé comme un succès ordinaire.
+// Moteur remplacé par un faux qui rend la confiance voulue (le vrai met 80 s sur une telle copie).
+for (const [confiance, attendu] of [[16, 'warn'], [95, 'ok']]) {
+  test(`OCR à confiance ${confiance} % : journal ${attendu}`, async ({ page }) => {
+    const bouton = await deposerScan(page);
+    const donnees = { confidence: confiance, ...donneesOcr([[confiance, 'Aie MAIN EE es tai ae'], [confiance, 'Ta ce nt RENE UE ven']]) };
+    await page.evaluate(d => { window.Tesseract = { createWorker: async () => ({ recognize: async () => ({ data: d }), terminate: async () => {} }) }; }, donnees);
+    await bouton.click();
+    await expect(page.locator('.journal-item')).toHaveClass(new RegExp(attendu), { timeout: 60_000 });
+    const msg = page.locator('.journal-msg'), md = () => page.evaluate(() => resultats[0].md);
+    if (attendu === 'warn') {
+      await expect(msg).toHaveText('Texte reconnu par OCR → arrete.md, mais confiance très faible (16 %) : copie probablement trop dégradée, renumérisez-la si possible.');
+      expect(await md()).toContain('confiance moyenne 16 % : ⚠️ texte probablement inexploitable');
+    } else {
+      await expect(msg).toHaveText('Texte reconnu par OCR → arrete.md (à relire)');
+      expect(await md()).toContain('confiance moyenne 95 % : à relire');
+    }
+    await expect(bouton).toHaveCount(0);
+  });
+}
+
 // Données Tesseract fabriquées : une ligne par entrée [confiance, texte]
 const donneesOcr = lignes => ({ blocks: [{ paragraphs: [{ lines: lignes.map(([confidence, text], i) => ({
   confidence, text, bbox: { x0: 0, x1: 500, y0: i * 20, y1: i * 20 + 12 } })) }] }] });
