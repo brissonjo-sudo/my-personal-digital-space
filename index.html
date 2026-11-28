@@ -44,11 +44,13 @@
   <link rel="stylesheet" href="commun/style.css">
   <link rel="stylesheet" href="modules/convertir/convertir.css">
   <link rel="stylesheet" href="modules/pdf/pdf.css">
+  <link rel="stylesheet" href="modules/images/images.css">
 
   <!-- Application : coeur (registre, routeur, passerelle), commun/pdfjs.js (worker PDF.js
        et scripts vérifiés), module Convertir (partage.js = code commun au fil principal
        et au worker), puis module PDF (modèle de pages, export, miniatures, actions, annotations, visionneuse ; la
-       bibliothèque d'écriture PDF n'est chargée qu'au premier export, voir commun/pdfjs.js). Scripts classiques :
+       bibliothèque d'écriture PDF n'est chargée qu'au premier export, voir commun/pdfjs.js), puis module Images
+       (métadonnées, traitement, interface ; aucune bibliothèque, le .zip utilise JSZip). Scripts classiques :
        l'application fonctionne aussi ouverte depuis le disque (file://). -->
   <script defer src="commun/coeur.js"></script>
   <script defer src="commun/icones.js"></script>
@@ -73,6 +75,9 @@
   <script defer src="modules/pdf/gabarit.js"></script>
   <script defer src="modules/pdf/molette.js"></script>
   <script defer src="modules/pdf/visionneuse.js"></script>
+  <script defer src="modules/images/metadonnees.js"></script>
+  <script defer src="modules/images/traitement.js"></script>
+  <script defer src="modules/images/images.js"></script>
 </head>
 <body>
 <div class="mpds">
@@ -82,7 +87,6 @@
     <div class="rail-sep" aria-hidden="true"></div>
     <!-- Modules à venir : emplacements réservés, non interactifs -->
     <ul class="rail-liste rail-attente-liste">
-      <li class="rail-attente" aria-disabled="true"><svg class="icone" aria-hidden="true" focusable="false" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 10a2 2 0 1 0 4 0 2 2 0 1 0-4 0M21 16l-5-5-9 9"/></svg> Images <span class="sr-seul">(bientôt)</span></li>
       <li class="rail-attente" aria-disabled="true"><svg class="icone" aria-hidden="true" focusable="false" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg> Texte <span class="sr-seul">(bientôt)</span></li>
     </ul>
   </nav>

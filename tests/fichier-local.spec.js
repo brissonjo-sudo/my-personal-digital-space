@@ -65,6 +65,14 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
     .then(() => page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click())]);
   expect(telechargement.suggestedFilename()).toBe('v (modifié).pdf');
   expect(fs.readFileSync(await telechargement.path()).subarray(0, 5).toString()).toBe('%PDF-');
+  // Module Images : retrait sans perte, vignette blob: et téléchargement, aussi en file://
+  await page.locator('.rail-lien[data-module="images"]').click();
+  await page.evaluate(async () => MPDS.envoyer(await Fab.jpegAvecMeta('photo.jpg'), 'images'));
+  await page.getByRole('button', { name: 'Traiter les images' }).click();
+  await expect(page.locator('.img-retires')).toContainText('Retiré : EXIF (dont la position GPS)');
+  const [image] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^Télécharger « photo/ }).click()]);
+  expect(image.suggestedFilename()).toBe('photo (sans métadonnées).jpg');
+  expect(fs.readFileSync(await image.path()).includes('Ville-Secrete')).toBe(false);
   expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
   fs.rmSync(dossier, { recursive: true, force: true });
 });

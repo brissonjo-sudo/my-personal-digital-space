@@ -245,8 +245,68 @@
   const odt = (nom, corps, options) => odf(nom, 'text', corps, options);
   const odp = (nom, corps, options) => odf(nom, 'presentation', corps, options);
 
+  // ---------------------------------------------------------------- Photos avec métadonnées (module Images)
+  const octetsDe = s => typeof s === 'string' ? Uint8Array.from(s, c => c.charCodeAt(0)) : s;
+  const coller = (...m) => { const r = new Uint8Array(m.reduce((n, x) => n + x.length, 0)); let p = 0; for (const x of m) { r.set(x, p); p += x.length; } return r; };
+  const segmentJpeg = (m, d) => { d = octetsDe(d); return coller([0xFF, m, (d.length + 2) >> 8, (d.length + 2) & 255], d); };
+  // EXIF (TIFF gros-boutiste) : Orientation dans IFD0, puis un répertoire GPS (latitude « N »)
+  const exifJpeg = orientation => coller(octetsDe('Exif\0\0'), [
+    0x4D, 0x4D, 0, 42, 0, 0, 0, 8, 0, 2,
+    0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0,
+    0x88, 0x25, 0, 4, 0, 0, 0, 1, 0, 0, 0, 38,
+    0, 0, 0, 0,
+    0, 1, 0, 1, 0, 2, 0, 0, 0, 2, 0x4E, 0, 0, 0, 0, 0, 0, 0]);
+  // Moitié gauche rouge, moitié droite bleue : l'orientation appliquée se voit aux pixels
+  // bruit : grain aléatoire, comme une vraie photo (le réencodage en qualité maximale pèse alors plus lourd)
+  async function photoCanvas(w, h, type, bruit) {
+    const c = Object.assign(document.createElement('canvas'), { width: w, height: h }), x = c.getContext('2d');
+    x.fillStyle = '#e00000'; x.fillRect(0, 0, w / 2, h);
+    x.fillStyle = '#0000e0'; x.fillRect(w / 2, 0, w / 2, h);
+    if (bruit) for (let k = 0; k < w * h / 4; k++) { x.fillStyle = `rgb(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255})`; x.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
+    return new Uint8Array(await (await new Promise(r => c.toBlob(r, type, 0.9))).arrayBuffer());
+  }
+  // JPEG du navigateur + segments à retirer (EXIF avec GPS, XMP, MPF, C2PA, IPTC, commentaire, données
+  // après la fin) + un profil ICC à garder. file.attendu : les octets qu'un retrait correct doit produire.
+  // video : taille de la « vidéo » cachée après la fin (photo animée), en octets en plus du marqueur
+  async function jpegAvecMeta(nom, { w = 40, h = 20, orientation = 6, bruit = false, video = 0 } = {}) {
+    const base = await photoCanvas(w, h, 'image/jpeg', bruit);
+    const apresApp0 = base[3] === 0xE0 ? 4 + ((base[4] << 8) | base[5]) : 2;
+    const icc = segmentJpeg(0xE2, 'ICC_PROFILE\0\x01\x01icc-garde');
+    const fichier = coller(base.subarray(0, apresApp0),
+      segmentJpeg(0xE1, exifJpeg(orientation)),
+      segmentJpeg(0xE1, 'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>Ville-Secrete</x:xmpmeta>'),
+      icc,
+      segmentJpeg(0xE2, 'MPF\0mpf-secret'),
+      segmentJpeg(0xEB, 'JP\0\0c2pa-secret'),
+      segmentJpeg(0xED, 'Photoshop 3.0\0iptc-secret'),
+      segmentJpeg(0xFE, 'commentaire-secret'),
+      base.subarray(apresApp0),
+      octetsDe('video-secrete'), new Uint8Array(video));
+    // Orientation ≠ 1 : seul un EXIF minimal (l'orientation) doit rester, juste après JFIF
+    const orient = orientation === 1 ? [] : segmentJpeg(0xE1, coller(octetsDe('Exif\0\0'),
+      [0x4D, 0x4D, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0]));
+    const attendu = coller(base.subarray(0, apresApp0), orient, icc, base.subarray(apresApp0));
+    return Object.assign(new File([fichier], nom, { type: 'image/jpeg' }), { attendu });
+  }
+  const CRC = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xEDB88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
+  const crc32 = o => { let c = 0xFFFFFFFF; for (const x of o) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const blocPng = (type, d) => {
+    d = octetsDe(d);
+    const td = coller(octetsDe(type), d), n = d.length, c = crc32(td);
+    return coller([n >>> 24, (n >> 16) & 255, (n >> 8) & 255, n & 255], td, [c >>> 24, (c >> 16) & 255, (c >> 8) & 255, c & 255]);
+  };
+  // PNG du navigateur + tEXt, eXIf, tIME, un bloc privé et des données après IEND ; gAMA à garder
+  async function pngAvecMeta(nom, { w = 40, h = 20 } = {}) {
+    const base = await photoCanvas(w, h, 'image/png');
+    const gama = blocPng('gAMA', [0, 0, 0xB1, 0x8F]);
+    const fichier = coller(base.subarray(0, 33), gama, blocPng('tEXt', 'Author\0png-secret'), blocPng('eXIf', 'MM\0*exif-secret'),
+      blocPng('tIME', [7, 234, 11, 28, 12, 0, 0]), blocPng('prVt', 'prive-secret'), base.subarray(33), octetsDe('apres-secret'));
+    const attendu = coller(base.subarray(0, 33), gama, base.subarray(33));
+    return Object.assign(new File([fichier], nom, { type: 'image/png' }), { attendu });
+  }
+
   window.Fab = {
-    PNG_B64, texte, pdf, pdfScanne, imageTexte, classeur,
+    PNG_B64, texte, pdf, pdfScanne, imageTexte, classeur, jpegAvecMeta, pngAvecMeta, blocPng, segmentJpeg,
     docx, docxPara, docxImage,
     pptx, pptxTitre, pptxCorps, pptxZone, pptxTableau, pptxImage,
     odt, odp,
