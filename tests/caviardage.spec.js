@@ -105,6 +105,7 @@ test('outil Caviarder : la page devient une image noircie, sans texte ni police 
   expect(noir(garde)).toBe(false);   // « Public » reste visible (en image)
   expect(blanc(fond)).toBe(true);
   await expect(page.locator('#pdf-etat')).toContainText('« a (caviardé).pdf » enregistré.');
+  await expect(page.locator('#pdf-etat')).not.toHaveClass(/pdf-erreur/);
 });
 
 test('recherche : casse, accents, coupure de ligne, adresse de lien ; pages sans texte signalées ; métadonnées retirées', async ({ page }) => {
@@ -145,6 +146,7 @@ test('zone retirée exprès : le terme encore lisible est signalé ; Ctrl+Z reti
   const { octets } = await exporter(page);
   expect((await relire(page, octets)).pages[0].texte).toBe('Monsieur Jean DUPONT demeure ici.');
   await expect(page.locator('#pdf-etat')).toContainText('« Jean Dupont » reste lisible en clair, page 1.');
+  await expect(page.locator('#pdf-etat')).toHaveClass(/pdf-erreur/);   // affiché comme une erreur, pas une simple information
   // Ctrl+Z : la suppression, puis tout le lot de zones
   await page.keyboard.press('Control+z');
   await expect(page.locator('.pdf-calque [data-type="caviar"]')).toHaveCount(1);
@@ -198,4 +200,97 @@ test('grande page : résolution réduite et signalée, page sans texte', async (
   const { octets } = await exporter(page);
   expect((await relire(page, octets)).pages[0].texte).toBe('');
   await expect(page.locator('#pdf-etat')).toContainText('Page 1 : grande page, caviardée à 91 ppp au lieu de 200.');
+});
+
+// Point PDF → pixel du rendu à l'échelle 1 (rotation et décalage du cadre compris)
+const pixelsPdf = (page, octets, n, pts) => page.evaluate(async ({ o, n, pts }) => {
+  const d = await (await MPDS.pdfjs.ouvrir(new Uint8Array(o).buffer)).promise, p = await d.getPage(n), vue = p.getViewport({ scale: 1 });
+  const cv = Object.assign(document.createElement('canvas'), { width: Math.round(vue.width), height: Math.round(vue.height) }), g = cv.getContext('2d');
+  await p.render({ canvasContext: g, viewport: vue }).promise;
+  return pts.map(([x, y]) => { const [u, v] = vue.convertToViewportPoint(x, y); return [...g.getImageData(Math.floor(u), Math.floor(v), 1, 1).data].slice(0, 3); });
+}, { o: [...octets], n, pts });
+
+test('recherche : le nom entier est noirci en Courier, en Times, sur une page tournée, sur un cadre décalé, entre des « W » et des « i » en Courier', async ({ page }) => {
+  // Pour chaque page : police, cadre, rotation, texte ; renvoie la position exacte du nom (pdf-lib la connaît)
+  const noms = await page.evaluate(async () => {
+    await MPDS.chargerScript(MPDS.pdfExport.URL_LIB);
+    const { PDFDocument, StandardFonts, degrees } = PDFLib, d = await PDFDocument.create(), NOM = 'Jean DUPONT', T = 14;
+    const cas = [['Courier', 'MMMMMMMMMM ', ' iiiiiiiiii', [0, 0], 0], ['TimesRoman', 'WWWWWW ', ' llllll', [0, 0], 0],
+      ['Helvetica', 'Page tournée : ', ' fin', [0, 0], 90], ['Helvetica', 'Cadre décalé : ', ' fin', [100, 100], 0],
+      ['Courier', 'W'.repeat(20), 'i'.repeat(20), [0, 0], 0]];   // en sans empattement, W large et i étroit ; en Courier, tous égaux : la famille compte
+    const r = [];
+    for (const [police, avant, apres, [dx, dy], rot] of cas) {
+      const f = await d.embedFont(StandardFonts[police]), p = d.addPage([595, 842]);
+      p.setMediaBox(dx, dy, 595, 842);
+      const x = dx + 72, y = dy + 700;
+      p.drawText(avant + NOM + apres, { x, y, size: T, font: f });
+      if (rot) p.setRotation(degrees(rot));
+      const x0 = x + f.widthOfTextAtSize(avant, T);
+      r.push({ x0, x1: x0 + f.widthOfTextAtSize(NOM, T), y });
+    }
+    await MPDS.envoyer(new File([await d.save()], 'polices.pdf'), 'pdf');
+    return r;
+  });
+  await expect(page.locator('.pdf-mini')).toHaveCount(5);
+  await pret(page);
+  await page.getByRole('button', { name: 'Rechercher et caviarder' }).click();
+  await page.getByLabel('Mot ou expression à caviarder').fill('Jean Dupont');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#pdf-cav-resultat')).toHaveText('« Jean Dupont » : 5 occurrences, pages 1, 2, 3, 4, 5.');
+  await page.getByRole('button', { name: 'Caviarder les 5 occurrences' }).click();
+  const { octets } = await exporter(page);
+  expect((await relire(page, octets)).pages.map(p => p.texte)).toEqual(['', '', '', '', '']);
+  for (const [k, { x0, x1, y }] of noms.entries()) {
+    const pts = [];   // tout le nom, du pied des lettres au haut des capitales, tous les 2 points
+    for (let x = x0 + 0.5; x <= x1 - 0.5; x += 2) for (const h of [0.5, 5, 9.5]) pts.push([x, y + h]);
+    const px = await pixelsPdf(page, octets, k + 1, pts);
+    expect(px.filter(v => !noir(v)).length, 'page ' + (k + 1) + ' : pixels du nom non noircis').toBe(0);
+  }
+});
+
+test('zone et annotation de texte sur la même page : seule l\'annotation reste en texte ; fichier entièrement caviardé sans police ni texte', async ({ page }) => {
+  await page.evaluate(() => MPDS.envoyer(Fab.pdf('b.pdf', [[{ t: 'Confidentiel', x: 72, y: 760, taille: 30 }]]), 'pdf'));
+  await expect(page.locator('.pdf-mini')).toHaveCount(1);
+  await cent(page);
+  await bouton(page, 'Caviarder (R)').click();
+  await tracer(page, 60, 50, 300, 95);
+  await bouton(page, 'Texte (T)').click();
+  const p = await ecran(page, 72, 300);
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.type('Visé');
+  await page.keyboard.press('Enter');
+  const { octets } = await exporter(page);
+  expect((await relire(page, octets)).pages[0].texte).toBe('Visé');
+  expect(await structure(page, octets, 1)).toEqual({ polices: 1, images: 1 });   // Helvetica de l'annotation, image de la page
+  // Contrôle indépendant de PDF.js : sans l'annotation, aucun objet police ni opérateur de texte dans tout le fichier
+  await page.keyboard.press('Control+z');
+  const { octets: o2 } = await exporter(page);
+  const bilan = await page.evaluate(async o => {
+    const { PDFDocument, PDFDict, PDFRawStream, PDFName, decodePDFRawStream } = PDFLib, d = await PDFDocument.load(new Uint8Array(o));
+    let polices = 0, texte = 0;
+    for (const [, x] of d.context.enumerateIndirectObjects()) {
+      const dict = x instanceof PDFDict ? x : x instanceof PDFRawStream ? x.dict : null;
+      if (dict && String(dict.get(PDFName.of('Type'))) === '/Font') polices++;
+      if (x instanceof PDFRawStream && String(x.dict.get(PDFName.of('Subtype'))) !== '/Image') {
+        const s = new TextDecoder('latin1').decode(decodePDFRawStream(x).decode());
+        if (/(^|\s)(BT|Tj|TJ)(\s|$)/.test(s) || s.includes('Confidentiel')) texte++;
+      }
+    }
+    return { polices, texte };
+  }, [...o2]);
+  expect(bilan).toEqual({ polices: 0, texte: 0 });
+});
+
+test('passerelle Markdown après caviardage : le nom n\'est pas transmis au module Convertir', async ({ page }) => {
+  await ouvrirDossier(page);
+  await page.getByRole('button', { name: 'Rechercher et caviarder' }).click();
+  await page.getByLabel('Mot ou expression à caviarder').fill('Jean Dupont');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Caviarder les 3 occurrences' }).click();
+  await bouton(page, 'Convertir en Markdown').click();
+  await expect(page).toHaveURL(/#\/convertir$/);
+  await expect(page.locator('.journal-item')).toHaveCount(1);
+  await page.waitForFunction(() => !document.querySelector('.journal-item.en-cours'));
+  const md = await page.evaluate(() => __resume().resultats.map(r => r.md).join('\n'));
+  expect(md).not.toMatch(/dupont/i);
 });

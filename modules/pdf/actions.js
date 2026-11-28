@@ -65,7 +65,9 @@
         const nom = suffixe ? MPDS.pdfExport.nomSortie(ctx.nom(), suffixe) : ctx.nom();
         const avis = [], avisFichier = [];   // sur le contenu (suivent le fichier) ; sur le fichier PDF seulement
         livrer(await MPDS.pdfExport.construire(pages, avis, avisFichier, modele.termes), nom, avis);
-        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + [...avis, ...avisFichier].map(a => ' ' + a).join(''));
+        const tous = [...avis, ...avisFichier];   // un terme caviardé encore lisible : affiché comme une erreur
+        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + tous.map(a => ' ' + a).join(''),
+          tous.some(a => a.includes(MPDS.pdfRecherche.LISIBLE)));
         return true;
       } catch (err) {
         ctx.message('L\'export a échoué : ' + (err.message || err), true);
