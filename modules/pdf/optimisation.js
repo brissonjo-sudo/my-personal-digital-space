@@ -1,7 +1,7 @@
 // Module PDF — optimisation sans perte : le fichier ouvert est relu par pdf-lib et réécrit à l'identique,
 // avec les flux non compressés passés en Flate (zlib : CompressionStream du navigateur) et les objets
 // regroupés en flux d'objets. Rien n'est retiré : signets, formulaires, pièces jointes et métadonnées restent.
-// Mesure du 2026-11-28 sur 26 PDF réels : 0 à 10 % le plus souvent, 78 % sur un fichier aux flux bruts.
+// Mesure du 2026-11-28 sur 26 PDF réels (contenu relu identique pour tous) : médiane 1,7 %, au plus 11 %, sauf 78 % sur un fichier aux flux bruts.
 // Publie MPDS.pdfOptimisation.{ identique(modele), optimiser(source, avis) }.
 (() => {
   'use strict';
