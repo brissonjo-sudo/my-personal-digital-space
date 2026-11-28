@@ -3,12 +3,13 @@
 
 const { test, expect, ouvrirApp } = require('./aide');
 
-test('route par défaut : Convertir, monté ; rail : Convertir puis PDF', async ({ page }) => {
+test('route par défaut : Convertir, monté ; rail : Convertir, PDF, Images, puis Texte à venir', async ({ page }) => {
   await ouvrirApp(page);
   expect(await page.evaluate(() => location.hash)).toBe('#/convertir');
   await expect(page.locator('section[data-module="convertir"]')).toBeVisible();
   await expect(page.locator('#zone-depot')).toBeVisible();
-  await expect(page.locator('.rail-lien')).toHaveText(['Convertir', 'PDF']);
+  await expect(page.locator('.rail-lien')).toHaveText(['Convertir', 'PDF', 'Images']);
+  await expect(page.locator('.rail-attente')).toHaveText(['Texte (bientôt)']);
   await expect(page.locator('.rail-lien').first()).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveTitle('My Personal Digital Space');
 });

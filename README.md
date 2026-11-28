@@ -15,6 +15,7 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📑 **PDF** : signer (dessin ou image au fond retiré ; enregistrable sur l'appareil, chiffrée par une phrase secrète) et tamponner (10 tampons), figés dans la page à l'export | ✅ disponible |
 | 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export ; PDF chiffrés sans mot de passe d'ouverture pris en charge (testé sur fichiers générés, pas encore sur de vrais Cerfa) | ✅ disponible |
 | 📑 → 📝 **Passerelle** : « Convertir en Markdown » envoie le PDF tel qu'affiché (pages, annotations, formulaire) au module Convertir, en mémoire | ✅ disponible |
+| 🖼️ **Images** : retirer les métadonnées sans perte (position GPS, appareil, dates, vidéo cachée), redimensionner, compresser, convertir (JPEG, PNG, WebP), par lot en `.zip` ; « Lire le texte » envoie l'image au module Convertir (OCR) | ✅ disponible |
 
 ---
 
@@ -28,6 +29,18 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 4. **Récupérez** vos `.md` — un par un, ou tous en `.zip`
 
 PDF scanné ou photo de document : cliquez sur **« Reconnaître le texte (OCR) »** dans le journal de conversion.
+
+---
+
+## 🖼️ Module Images
+
+1. **Choisissez** Images dans la barre latérale, puis **ajoutez** vos images (clic ou glisser-déposer, jusqu'à 100 à la fois).
+2. **Choisissez** le traitement :
+   - **Retirer les métadonnées seulement** : l'image n'est pas réencodée, sa qualité ne change pas. JPEG et PNG : seul ce qui sert à l'affichage est gardé (liste blanche : tables de l'image, profil de couleur) ; tout le reste est retiré, y compris la vidéo ou les images cachées après la fin du fichier (« photos animées », profondeur). Autres formats : réencodés en PNG.
+   - **Redimensionner, compresser ou convertir** : côté le plus long ou pourcentage (jamais agrandie), format JPEG, WebP ou PNG, qualité réglable. Le réencodage retire aussi toutes les métadonnées et redresse la photo selon son orientation. Résultat plus lourd que l'original à taille et format égaux : l'original est gardé, sans ses métadonnées.
+3. **Traitez**, puis **téléchargez** chaque image, ou tout en `.zip`.
+
+Photo tournée par son EXIF (portrait pris au téléphone) : en retrait sans perte, un EXIF minimal ne contenant **que l'orientation** est réécrit, pour qu'elle reste droite ; rien d'autre ne subsiste (ni position, ni appareil, ni date). Les photos HEIC (iPhone) ne sont pas lisibles par les navigateurs : un message explique comment obtenir du JPEG.
 
 ---
 
@@ -122,7 +135,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
   - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, jetons et styles communs (`style.css`, identité « Registre » : marine sobre, thème sombre automatique), icônes SVG au trait (`icones.js`, aucune bibliothèque) et `polices/` (voir ci-dessous)
-  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `coffre.js` (signature enregistrée, chiffrée), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `gabarit.js` (balisage de l'écran), `visionneuse.js`, `molette.js` (zoom et changement de page à la molette), `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `coffre.js` (signature enregistrée, chiffrée), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `gabarit.js` (balisage de l'écran), `visionneuse.js`, `molette.js` (zoom et changement de page à la molette), `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné). Module Images : `metadonnees.js` (format reconnu aux premiers octets, retrait sans perte des métadonnées JPEG et PNG par liste blanche), `traitement.js` (décodage, redimensionnement, encodage par Canvas, contrôle du fichier produit, `.zip`) et `images.js` (interface)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -184,7 +197,7 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 - ✅ Module PDF : visionneuse, pages, annotations
 - ✅ Module PDF : signer, tamponner
 - ✅ Module PDF : formulaires
-- 🔭 Images : compresser, redimensionner, convertir, retirer les métadonnées
+- ✅ Images : compresser, redimensionner, convertir, retirer les métadonnées
 - 🔭 PDF : compresser, caviarder
 - 🔭 Markdown → Word / PDF
 - 🔭 Outils texte : comparer, nettoyer, anonymiser
