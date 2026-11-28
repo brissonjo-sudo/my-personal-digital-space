@@ -6,16 +6,19 @@
 //              couleur, angle (sens de lecture, degrés anti-horaires : celui de la rotation affichée) }
 //   dessin : { type, pts [[x, y], …], couleur, epaisseur }
 //   signature : { type, x, y (coin bas-gauche), w, h, png (data URL), angle } ; tampon : voir tampons.js (même repère, + w, h, taille, incl)
+//   caviar : { type, x, y, w, h } (comme surlig) : zone noircie ; la page qui en porte devient une image à l'export (trame.js)
 // Publie MPDS.pdfAnnotations.creer(modele, surChangement(page)).
 (() => {
   'use strict';
 
   function creer(modele, surChangement) {
-    let faits = [], defaits = [], suivant = 0;   // commandes : { op: 'ajout'|'suppr'|'dep', page, a, i | avant, apres }
-    const vivante = c => modele.liste.includes(c.page);
+    // commandes : { op: 'ajout'|'suppr'|'dep', page, a, i | avant, apres } ; lot : { op: 'lot', page (la 1re), cmds }
+    let faits = [], defaits = [], suivant = 0;
+    const vivante = c => c.op === 'lot' ? c.cmds.some(vivante) : modele.liste.includes(c.page);
 
     // sens > 0 : exécuter la commande ; sens < 0 : la défaire
     function appliquer(c, sens) {
+      if (c.op === 'lot') { for (const x of sens > 0 ? c.cmds : c.cmds.slice().reverse()) appliquer(x, sens); return; }
       const liste = c.page.annots;
       if (c.op === 'dep') { Object.assign(c.a, sens > 0 ? c.apres : c.avant); return; }
       if ((c.op === 'ajout') === (sens > 0)) liste.splice(Math.min(c.i, liste.length), 0, c.a);
@@ -35,6 +38,12 @@
 
     return {
       ajouter(page, a) { a.id = ++suivant; faire({ op: 'ajout', page, a, i: page.annots.length }); return a; },
+      // Plusieurs ajouts (pages éventuellement différentes), annulés d'un seul coup ; entrees : [[page, a], …]
+      ajouterLot(entrees) {
+        if (!entrees.length) return;
+        const cmds = entrees.map(([page, a]) => { a.id = ++suivant; return { op: 'ajout', page, a, i: Infinity }; });
+        faire({ op: 'lot', page: cmds[0].page, cmds });
+      },
       supprimer(page, a) { const i = page.annots.indexOf(a); if (i >= 0) faire({ op: 'suppr', page, a, i }); },
       // avant/apres : géométrie ({ x, y } ou { pts }) ; l'annotation vient d'être déplacée en direct
       deplacer(page, a, avant, apres) { faire({ op: 'dep', page, a, avant, apres }); },

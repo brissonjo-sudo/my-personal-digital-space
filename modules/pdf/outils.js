@@ -7,7 +7,7 @@
   'use strict';
   // [id, nom, touche, icône, libellé visible] : groupe 1 icônes seules, groupe 2 (signature, tampon) avec libellé
   const OUTILS = [['sel', 'Sélection', 'V', 'selection'], ['surlig', 'Surligneur', 'H', 'surligneur'], ['texte', 'Texte', 'T', 'texte'], ['dessin', 'Dessin', 'D', 'dessin'], ['gomme', 'Gomme', 'E', 'gomme'],
-    ['signature', 'Signature', 'S', 'signature', true], ['tampon', 'Tampon', 'P', 'tampon', true]];
+    ['signature', 'Signature', 'S', 'signature', true], ['tampon', 'Tampon', 'P', 'tampon', true], ['caviar', 'Caviarder', 'R', 'caviarder', true]];
   const COULEURS = [['Noir', '#000000'], ['Rouge', '#dc2626'], ['Bleu', '#2563eb'], ['Vert', '#16a34a'], ['Orange', '#f97316'], ['Jaune', '#facc15']];
   const POLICES = [['Helvetica', 'Helvetica'], ['TimesRoman', 'Times'], ['Courier', 'Courier']];
   const PAR_OUTIL = { surlig: '#facc15', texte: '#000000', dessin: '#dc2626' };   // couleur initiale de chaque outil
@@ -84,10 +84,12 @@
 
     // ---- Construction de la barre ----
     OUTILS.forEach(([id, nom, touche, icone, libelle], k) => {
-      if (id === 'signature') separateur();
+      if (id === 'signature' || id === 'caviar') separateur();
       boutons[id] = bouton('outil-' + id, libelle && nom, icone, `${nom} (${touche})`);
       boutons[id].addEventListener('click', () => lancer(id));
     });
+    // Caviardage par recherche : bouton à côté de l'outil, panneau sous la barre (caviardage.js)
+    const caviardage = MPDS.pdfCaviardage.creer({ modele, annotations, barre, aller: ctx.aller, message: ctx.message });
     separateur();
     const palette = document.createElement('span');
     palette.className = 'pdf-palette'; palette.setAttribute('role', 'group'); palette.setAttribute('aria-label', 'Couleur');
@@ -145,7 +147,7 @@
     return {
       poser: calque.poser,
       maj,
-      vider() { calque.fermer(); annotations.vider(); maj(); },
+      vider() { calque.fermer(); annotations.vider(); caviardage.fermer(); maj(); },
       detruire() { document.removeEventListener('keydown', surTouche); },
     };
   }

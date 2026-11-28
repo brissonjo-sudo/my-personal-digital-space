@@ -13,6 +13,7 @@ Une boîte à outils numérique personnelle — **100 % locale, sans installatio
 | 📑 **PDF** : gérer les pages (pivoter, supprimer, réordonner, fusionner, extraire, enregistrer) | ✅ disponible |
 | 📑 **PDF** : annoter (surligneur, texte, dessin, gomme, annuler/rétablir), figé dans la page à l'export | ✅ disponible |
 | 📑 **PDF** : signer (dessin ou image au fond retiré ; enregistrable sur l'appareil, chiffrée par une phrase secrète) et tamponner (10 tampons), figés dans la page à l'export | ✅ disponible |
+| 📑 **PDF** : caviarder (zones tracées à la main ou posées par recherche d'un mot ; la page caviardée devient une image : le texte masqué n'existe plus dans le fichier) | ✅ disponible |
 | 📑 **PDF** : remplir les formulaires (AcroForm : texte, cases, boutons radio, listes), aplatis à l'export ; PDF chiffrés sans mot de passe d'ouverture pris en charge (testé sur fichiers générés, pas encore sur de vrais Cerfa) | ✅ disponible |
 | 📑 → 📝 **Passerelle** : « Convertir en Markdown » envoie le PDF tel qu'affiché (pages, annotations, formulaire) au module Convertir, en mémoire | ✅ disponible |
 | 🖼️ **Images** : retirer les métadonnées sans perte (position GPS, appareil, dates, vidéo cachée), redimensionner, compresser, convertir (JPEG, PNG, WebP), par lot en `.zip` ; « Lire le texte » envoie l'image au module Convertir (OCR) | ✅ disponible |
@@ -41,6 +42,18 @@ PDF scanné ou photo de document : cliquez sur **« Reconnaître le texte (OCR) 
 3. **Traitez**, puis **téléchargez** chaque image, ou tout en `.zip`.
 
 Photo tournée par son EXIF (portrait pris au téléphone) : en retrait sans perte, un EXIF minimal ne contenant **que l'orientation** est réécrit, pour qu'elle reste droite ; rien d'autre ne subsiste (ni position, ni appareil, ni date). Les photos HEIC (iPhone) ne sont pas lisibles par les navigateurs : un message explique comment obtenir du JPEG.
+
+---
+
+## ⬛ Caviarder un PDF
+
+1. Ouvrez le PDF dans le module **PDF**.
+2. **Caviarder (R)** : tracez des rectangles noirs sur ce qui doit disparaître. Ou **Rechercher et caviarder** : saisissez un nom, une adresse, un numéro ; la recherche ignore majuscules, accents et espaces, trouve un mot coupé en fin de ligne, et regarde aussi les commentaires, les champs de formulaire et les adresses des liens. Vérifiez chaque page : une zone en trop se retire (Sélection puis Suppr), Ctrl+Z retire tout le lot.
+3. **Enregistrez** : le fichier s'appelle « … (caviardé).pdf ».
+
+Ce qui est garanti : chaque page qui porte une zone noire est **reconstruite en image** (200 ppp), zones noircies dans les pixels. Le texte, les polices, les liens et les annotations d'origine de cette page **ne sont plus dans le fichier** : copier-coller ou chercher ne retrouve rien. Le fichier exporté est relu avant d'être proposé ; s'il restait du texte sur une page caviardée, l'export serait refusé. Les métadonnées du document (titre, auteur…) ne sont jamais recopiées.
+
+Limites : le texte des pages caviardées n'est plus sélectionnable et le fichier grossit ; les pages sans texte (scans) ne peuvent pas être cherchées, la recherche le signale : caviardez-les à la main ; les valeurs saisies dans un formulaire ne figurent pas sur une page caviardée (enregistrez d'abord le formulaire rempli, rouvrez-le, puis caviardez). Un terme cherché qui reste lisible ailleurs (zone retirée exprès) est signalé à l'enregistrement.
 
 ---
 
@@ -135,7 +148,7 @@ Ouvert directement (double-clic sur `index.html` dans le dossier complet, sans s
 - **Un dossier, zéro build** :
   - `index.html` — coquille : sécurité (CSP), bibliothèques, barre latérale
   - `commun/` — routeur entre modules (`#/convertir`…), passerelle de fichiers en mémoire, jetons et styles communs (`style.css`, identité « Registre » : marine sobre, thème sombre automatique), icônes SVG au trait (`icones.js`, aucune bibliothèque) et `polices/` (voir ci-dessous)
-  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `coffre.js` (signature enregistrée, chiffrée), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `gabarit.js` (balisage de l'écran), `visionneuse.js`, `molette.js` (zoom et changement de page à la molette), `coordonnees.js` (point d'affichage ↔ point PDF) et `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné). Module Images : `metadonnees.js` (format reconnu aux premiers octets, retrait sans perte des métadonnées JPEG et PNG par liste blanche), `traitement.js` (décodage, redimensionnement, encodage par Canvas, contrôle du fichier produit, `.zip`) et `images.js` (interface)
+  - `modules/<nom>/` — un dossier par module (scripts et styles). Module PDF : `pages.js` (modèle des pages affichées), `export.js` (reconstruit un PDF neuf), `miniatures.js`, `actions.js`, `annotations.js` (annotations par page, en points PDF, pile d'annulation), `calque.js` (calque SVG et gestes), `outils.js` (barre d'outils, raccourcis), `detourage.js` (contrôle et détourage de l'image de signature), `signature.js` (fenêtre de signature), `coffre.js` (signature enregistrée, chiffrée), `tampons.js` (catalogue, rendu, export des tampons), `formulaire.js` (détection, valeurs et couche de saisie des formulaires), `formulaire-export.js` (valeurs appliquées puis aplaties à l'export), `gabarit.js` (balisage de l'écran), `visionneuse.js`, `molette.js` (zoom et changement de page à la molette), `coordonnees.js` (point d'affichage ↔ point PDF), `texte.js` (contrôle de l'encodage WinAnsi du texte dessiné), `trame.js` (page rendue en image, zones caviardées noircies dans les pixels), `recherche.js` (recherche de texte pour le caviardage et contrôle du fichier exporté) et `caviardage.js` (panneau « Rechercher et caviarder »). Module Images : `metadonnees.js` (format reconnu aux premiers octets, retrait sans perte des métadonnées JPEG et PNG par liste blanche), `traitement.js` (décodage, redimensionnement, encodage par Canvas, contrôle du fichier produit, `.zip`) et `images.js` (interface)
   - Le dossier complet fonctionne aussi ouvert depuis le disque (`file://`), sans le mode hors ligne : scripts classiques uniquement, pas de modules ES
   - `sw.js` — service worker : cache hors ligne (fichier séparé obligatoire, doit être servi en HTTP(S) même-origine)
   - `manifest.webmanifest` — manifeste PWA (installation)
@@ -198,7 +211,8 @@ L'application ne demande ni compilation ni dépendance : `package.json` ne sert 
 - ✅ Module PDF : signer, tamponner
 - ✅ Module PDF : formulaires
 - ✅ Images : compresser, redimensionner, convertir, retirer les métadonnées
-- 🔭 PDF : compresser, caviarder
+- ✅ PDF : caviarder
+- 🔭 PDF : compresser
 - 🔭 Markdown → Word / PDF
 - 🔭 Outils texte : comparer, nettoyer, anonymiser
 - 🔭 OCR dans d'autres langues que le français
