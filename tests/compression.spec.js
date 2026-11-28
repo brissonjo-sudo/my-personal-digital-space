@@ -118,6 +118,30 @@ test('pages en image : scan nettement allégé, pages, cadres et rotation conser
     return xo.keys().map(k => xo.lookup(k).dict.get(PDFLib.PDFName.of('Width')).asNumber());
   }, [...r.octets]);
   expect(largeur).toEqual([595]);
+  // qualité demandée respectée : Haute est plus lourde que Basse
+  await calculer(page, { dpi: 72, qualite: 0.85 });
+  expect((await enregistrer(page, 'Enregistrer la version en image')).octets.length).toBeGreaterThan(r.octets.length * 1.2);
+});
+
+test('terme caviardé puis zones annulées : sans perte indisponible, terme lisible signalé en erreur', async ({ page }) => {
+  await page.evaluate(async () => {
+    await MPDS.chargerScript(MPDS.pdfExport.URL_LIB);
+    const { PDFDocument, StandardFonts } = PDFLib, d = await PDFDocument.create(), f = await d.embedFont(StandardFonts.Helvetica);
+    d.addPage([595, 842]).drawText('Monsieur Jean Dupont, agent.', { x: 72, y: 760, size: 14, font: f });
+    await MPDS.envoyer(new File([await d.save()], 'dossier.pdf'), 'pdf');
+  });
+  await expect(page.locator('.pdf-mini')).toHaveCount(1);
+  await bouton(page, 'Rechercher et caviarder').click();
+  await page.getByLabel('Mot ou expression à caviarder').fill('Dupont');
+  await page.keyboard.press('Enter');
+  await bouton(page, 'Caviarder l\'occurrence').click();
+  await page.locator('#pdf-scene').click();
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.pdf-calque [data-type="caviar"]')).toHaveCount(0);
+  await calculer(page);
+  await expect(page.locator('#pdf-comp-sans-perte')).toContainText('Sans perte : indisponible');
+  await expect(page.locator('#pdf-etat')).toHaveClass(/pdf-erreur/);
+  await expect(page.locator('#pdf-etat')).toContainText('« Dupont » reste lisible en clair, page 1.');
 });
 
 test('document déjà optimal et texte seul : aucun gain, rien à enregistrer', async ({ page }) => {

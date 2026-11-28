@@ -33,6 +33,7 @@
     const etat = el('p', { className: 'pdf-cav-resultat', id: 'pdf-comp-etat' });
     etat.setAttribute('role', 'status');
     const resultats = el('ul', { className: 'pdf-comp-liste', id: 'pdf-comp-liste' });
+    resultats.setAttribute('aria-live', 'polite');
     const panneau = el('form', { className: 'pdf-cav', id: 'pdf-comp', hidden: true },
       el('label', { className: 'pdf-reglage' }, 'Pages en image : résolution ', dpi),
       el('label', { className: 'pdf-reglage' }, 'Qualité ', qualite), calculer, fermerBtn, etat, resultats);
@@ -98,6 +99,9 @@
           ligne('pdf-comp-image', titre + ' (' + gain(base, o.length) + '). Le texte ne sera plus sélectionnable ni cherchable.' + liste(avis), o, version, suffixe, 'Enregistrer la version en image');
         } else ligne('pdf-comp-image', titre + ', plus lourd que le document actuel : rien à gagner. Essayez une résolution ou une qualité plus basse.');
         etat.textContent = (tel ? 'Fichier d\'origine : ' : 'Document modifié, enregistré normalement : ') + poids(base) + '.';
+        // terme caviardé resté lisible (zone retirée) : en erreur, comme à l'enregistrement normal (actions.js)
+        const lisibles = avis.filter(a => a.includes(MPDS.pdfRecherche.LISIBLE));
+        if (lisibles.length) ctx.message(lisibles.join(' '), true);
       } catch (err) {
         if (mon === jeton) { etat.textContent = 'Compression impossible : ' + (err.message || err); resultats.replaceChildren(); }
       } finally {

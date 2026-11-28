@@ -13,9 +13,10 @@
 
   // Le document affiché est-il exactement le fichier ouvert ? Sinon, optimiser ce fichier perdrait les
   // modifications (et rendrait le texte d'une zone caviardée). « modifie » ne suffit pas : il s'éteint à l'enregistrement.
+  // Terme caviardé par recherche puis zones annulées : passage par l'export normal, qui signale le terme resté lisible.
   function identique(modele) {
     const s = modele.sources[0];
-    return modele.sources.length === 1 && modele.liste.length === s.doc.numPages && !(s.valeurs && s.valeurs.size)
+    return modele.sources.length === 1 && modele.liste.length === s.doc.numPages && !(s.valeurs && s.valeurs.size) && !modele.termes.size
       && modele.liste.every((p, k) => p.source === s && p.index === k && !p.rotation && !p.annots.length);
   }
 
