@@ -77,6 +77,11 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
     return (await (await d.getPage(1)).getTextContent()).items.length;
   }, [...fs.readFileSync(await caviarde.path())]);
   expect(texteP1).toBe(0);
+  // Compresser : document modifié (sans perte indisponible), pages en image calculées (CompressionStream, toBlob), aussi en file://
+  await page.getByRole('button', { name: 'Compresser', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculer', exact: true }).click();
+  await expect(page.locator('#pdf-comp-sans-perte')).toContainText('indisponible');
+  await expect(page.locator('#pdf-comp-image')).toContainText('Pages en image (150 ppp)');
   // Module Images : retrait sans perte, vignette blob: et téléchargement, aussi en file://
   await page.locator('.rail-lien[data-module="images"]').click();
   await page.evaluate(async () => MPDS.envoyer(await Fab.jpegAvecMeta('photo.jpg'), 'images'));

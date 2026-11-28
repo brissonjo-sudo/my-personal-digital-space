@@ -40,6 +40,7 @@
     fermer: ['M6 6l12 12M18 6L6 18'],
     caviarder: ['M3 9h18v6H3z', 'M6 9l6 6M11 9l6 6M16 9l5 5'],
     rechercher: ['M4 11a7 7 0 1 0 14 0 7 7 0 1 0-14 0', 'M21 21l-4.5-4.5'],
+    compresser: ['M4 14h6v6M20 10h-6V4', 'M14 10l7-7M3 21l7-7'],
     ocr: ['M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M7 12h10'],
     verrou: ['M6 11h12v9H6z', 'M8 11V8a4 4 0 0 1 8 0v3'],
     ok: ['M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0', 'M8 12l3 3 5-6'],

@@ -144,6 +144,9 @@
 }
 .pdf-cav-resultat { flex-basis: 100%; font-size: .9rem; }
 .pdf-cav-resultat:empty { display: none; }
+/* Compresser : résultats des deux modes (même panneau que la recherche) */
+.pdf-comp-liste { flex-basis: 100%; margin: 0; padding-left: 1.25rem; font-size: .9rem; display: grid; gap: .35rem; }
+.pdf-comp-liste:empty { display: none; }
 .pdf-calque[data-outil="texte"] { cursor: text; }
 .pdf-calque[data-outil="gomme"] .pdf-annot { cursor: pointer; }
 .pdf-calque[data-outil="sel"] .pdf-annot { cursor: move; }

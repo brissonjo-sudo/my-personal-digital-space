@@ -47,6 +47,8 @@ const PRECACHE = [
   './modules/pdf/trame.js',
   './modules/pdf/recherche.js',
   './modules/pdf/caviardage.js',
+  './modules/pdf/optimisation.js',
+  './modules/pdf/compression.js',
   './modules/pdf/outils.js',
   './modules/pdf/formulaire.js',
   './modules/pdf/formulaire-export.js',

@@ -88,15 +88,15 @@
     const annots = c.node.lookup(PDFName.of('Annots'));   // le fork crée parfois un tableau vide : admis
     const ok = seulImages && images.length === 1 && images[0] && String(images[0].dict.get(PDFName.of('Subtype'))) === '/Image'
       && Array.isArray(ops) && ops.every(o => ['q', 'Q', 'cm', 'Do'].includes(o.name)) && (!annots || (annots instanceof PDFArray && !annots.size()));
-    if (!ok) throw new Error(nom + ' caviardée : contenu inattendu, export refusé.');
+    if (!ok) throw new Error(nom + ' (page image) : contenu inattendu, export refusé.');
   }
 
-  // Page caviardée : page NEUVE (même cadre, même rotation affichée) qui ne porte que l'image de la page, zones
-  // noircies dans les pixels (trame.js), puis les autres annotations de l'utilisateur. La page d'origine n'est
-  // jamais copiée : ni son texte, ni ses polices, ni ses annotations ne voyagent dans le fichier.
-  async function pageTrame(sortie, p, polices, avis, nom) {
+  // Page caviardée (ou compressée en image) : page NEUVE (même cadre, même rotation affichée) qui ne porte que
+  // l'image de la page, zones noircies dans les pixels (trame.js), puis les autres annotations de l'utilisateur.
+  // La page d'origine n'est jamais copiée : ni son texte, ni ses polices, ni ses annotations ne voyagent dans le fichier.
+  async function pageTrame(sortie, p, polices, avis, nom, reglages) {
     const pj = await p.source.doc.getPage(p.index + 1);
-    const { jpeg, view } = await MPDS.pdfTrame.rendre(pj, p.annots.filter(a => a.type === 'caviar'), avis, nom);
+    const { jpeg, view } = await MPDS.pdfTrame.rendre(pj, p.annots.filter(a => a.type === 'caviar'), avis, nom, reglages);
     const [x0, y0, x1, y1] = view, c = sortie.addPage([x1 - x0, y1 - y0]);
     c.setMediaBox(x0, y0, x1 - x0, y1 - y0);   // même repère que la page d'origine : les autres annotations restent en place
     c.drawImage(await sortie.embedJpg(jpeg), { x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
@@ -105,7 +105,7 @@
     c.setRotation(PDFLib.degrees((((pj.rotate + p.rotation) % 360) + 360) % 360));
     const v = p.source.valeurs;   // shortcut : valeurs saisies non reportées sur l'image ; à faire si le besoin se présente
     if (v && v.size && (await pj.getAnnotations()).some(a => a.fieldName && v.has(a.fieldName))) {
-      avis.push(nom + ' : les valeurs saisies dans le formulaire n\'y figurent pas (la page devient une image). Enregistrez d\'abord le formulaire rempli, rouvrez-le, puis caviardez.');
+      avis.push(nom + ' : les valeurs saisies dans le formulaire n\'y figurent pas (la page devient une image). Enregistrez d\'abord le formulaire rempli, rouvrez-le, puis recommencez.');
     }
     await aplatir(sortie, c, p.annots.filter(a => a.type !== 'caviar'), polices);
   }
@@ -115,10 +115,12 @@
   // pdf-lib…) ne change pas le fichier en cours de construction.
   // avisFichier : avertissements qui ne concernent que le fichier PDF (par défaut avec les autres)
   // termes : termes caviardés par recherche, contrôlés dans le fichier produit (recherche.js)
-  async function construire(pages, avis = [], avisFichier = avis, termes = []) {
+  // options.trame = { dpi, qualite } : TOUTES les pages deviennent des images (compression.js)
+  async function construire(pages, avis = [], avisFichier = avis, termes = [], options = {}) {
     pages = pages.map(p => ({ source: p.source, index: p.index, rotation: p.rotation, annots: structuredClone(p.annots || []) }));
     termes = [...termes];
-    const trame = p => p.annots.some(a => a.type === 'caviar'), caviarde = pages.some(trame);
+    const reglages = options.trame && { dpi: options.trame.dpi, qualite: options.trame.qualite, verbe: 'convertie en image' };
+    const trame = p => !!reglages || p.annots.some(a => a.type === 'caviar'), caviarde = pages.some(trame);
     const valeurs = new Map(pages.map(p => [p.source, new Map(p.source.valeurs || [])]));
     const { PDFDocument, PDFDict, PDFName, PDFObjectCopier, PDFPage, degrees } = await bibliotheque();
     const polices = new Map();
@@ -154,7 +156,7 @@
       }
     }
     for (const [k, p] of pages.entries()) {
-      if (trame(p)) { await pageTrame(sortie, p, polices, avis, 'Page ' + (k + 1)); continue; }
+      if (trame(p)) { await pageTrame(sortie, p, polices, avis, 'Page ' + (k + 1), reglages); continue; }
       const c = copies.get(p);
       const r = c.getRotation().angle, base = r % 90 ? 0 : r;   // /Rotate invalide : ignoré, comme PDF.js l'affiche
       c.setRotation(degrees((((base + p.rotation) % 360) + 360) % 360));
@@ -185,5 +187,5 @@
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
-  MPDS.pdfExport = { URL_LIB, construire, nomSortie, telecharger };
+  MPDS.pdfExport = { URL_LIB, bibliotheque, construire, nomSortie, telecharger };
 })();

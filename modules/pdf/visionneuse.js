@@ -122,7 +122,7 @@
   function fermerDocument() {
     jetonRendu++;
     annulerRendu();
-    annot.vider(); formulaire.vider(); miniatures.fermer(); q.scene.replaceChildren();
+    annot.vider(); formulaire.vider(); miniatures.fermer(); actions.fermer(); q.scene.replaceChildren();
     modele.vider();      // détruit les documents PDF.js
     courante = null;
   }

@@ -10,6 +10,7 @@
     ['monter', 'Monter la page', 'monter', 'pages'], ['descendre', 'Descendre la page', 'descendre', 'pages'],
     ['supprimer', 'Supprimer', 'supprimer', 'pages'], ['ajouter', 'Ajouter un PDF', 'ajouter', 'pages'],
     ['extraire', 'Extraire la sélection', 'extraire', 'pages'],
+    ['compresser', 'Compresser', 'compresser', 'doc'],
     ['markdown', 'Convertir en Markdown', 'markdown', 'doc'],
     ['enregistrer', 'Enregistrer le PDF', 'enregistrer', 'doc', 'pdf-btn-primaire'],
   ];
@@ -33,7 +34,7 @@
     function maj() {
       const n = modele.liste.length, ouvert = n > 0, cur = ctx.courante();
       const toutes = ouvert && modele.cibles(cur).length >= n;
-      for (const k of ['gauche', 'droite', 'ajouter', 'markdown', 'enregistrer']) b[k].disabled = !ouvert || occupe;
+      for (const k of ['gauche', 'droite', 'ajouter', 'compresser', 'markdown', 'enregistrer']) b[k].disabled = !ouvert || occupe;
       b.supprimer.disabled = !ouvert || occupe || toutes;
       b.supprimer.title = toutes ? 'Impossible de supprimer toutes les pages du document' : 'Supprimer';
       b.monter.disabled = !ouvert || occupe || cur <= 1;
@@ -54,6 +55,9 @@
     b.monter.addEventListener('click', deplacer(-1));
     b.descendre.addEventListener('click', deplacer(1));
     b.ajouter.addEventListener('click', () => fichier.click());
+    // Compresser : panneau sous l'en-tête (compression.js)
+    const compression = MPDS.pdfCompression.creer({ modele, apres: barreDoc.closest('.pdf-entete'), nom: ctx.nom, message: ctx.message });
+    b.compresser.addEventListener('click', () => compression.basculer());
     fichier.addEventListener('change', () => { const f = fichier.files[0]; fichier.value = ''; ctx.ajouter(f); });
 
     // Construit le PDF des pages données et le livre (téléchargement par défaut) ; erreurs
@@ -87,7 +91,7 @@
       // les avis sur le contenu (XFA abandonné, champ non figé) suivent le fichier : le module PDF est masqué à l'envoi
       (octets, nom, avis) => MPDS.envoyer(new File([octets], nom.replace(/\.pdf$/i, '') + '.pdf', { type: 'application/pdf' }), 'convertir', { avis })));
 
-    return { maj };
+    return { maj, fermer: compression.fermer };
   }
 
   MPDS.pdfActions = { creer };
