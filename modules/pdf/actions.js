@@ -64,8 +64,10 @@
       try {
         const nom = suffixe ? MPDS.pdfExport.nomSortie(ctx.nom(), suffixe) : ctx.nom();
         const avis = [], avisFichier = [];   // sur le contenu (suivent le fichier) ; sur le fichier PDF seulement
-        livrer(await MPDS.pdfExport.construire(pages, avis, avisFichier), nom, avis);
-        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + [...avis, ...avisFichier].map(a => ' ' + a).join(''));
+        livrer(await MPDS.pdfExport.construire(pages, avis, avisFichier, modele.termes), nom, avis);
+        const tous = [...avis, ...avisFichier];   // un terme caviardé encore lisible : affiché comme une erreur
+        ctx.message('« ' + nom + ' » ' + (suffixe ? 'enregistré.' : 'envoyé au module Convertir.') + tous.map(a => ' ' + a).join(''),
+          tous.some(a => a.includes(MPDS.pdfRecherche.LISIBLE)));
         return true;
       } catch (err) {
         ctx.message('L\'export a échoué : ' + (err.message || err), true);
@@ -74,7 +76,8 @@
     }
     b.enregistrer.addEventListener('click', async () => {
       const v = modele.version;   // une modification faite pendant l'export laisse l'indicateur allumé
-      if (await exporter(modele.liste.slice(), 'modifié')) { modele.enregistre(v); maj(); }
+      const caviarde = modele.liste.some(p => p.annots.some(a => a.type === 'caviar'));
+      if (await exporter(modele.liste.slice(), caviarde ? 'caviardé' : 'modifié')) { modele.enregistre(v); maj(); }
     });
     b.extraire.addEventListener('click', () => exporter(modele.liste.filter(p => modele.selection.has(p)), 'extrait'));
     // Passerelle : le document tel qu'affiché (pages, annotations, formulaire) part au convertisseur,

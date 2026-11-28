@@ -78,12 +78,47 @@
     }
   }
 
+  // Garde-fou : une page caviardée ne contient QUE son image (ni police, ni texte, ni annotation, ni autre dessin)
+  function controlerTrame(c, nom) {
+    const { PDFName, PDFDict, PDFArray } = PDFLib, res = c.node.Resources(), contenu = c.node.Contents();
+    const xo = res && res.lookup(PDFName.of('XObject'));
+    const seulImages = res && res.keys().every(k => String(k) === '/XObject' || (res.lookup(k) instanceof PDFDict && !res.lookup(k).keys().length));
+    const images = xo instanceof PDFDict ? xo.keys().map(k => xo.lookup(k)) : [];
+    const ops = contenu instanceof PDFArray && contenu.size() === 1 ? c.doc.context.lookup(contenu.get(0)).operators : null;
+    const annots = c.node.lookup(PDFName.of('Annots'));   // le fork crée parfois un tableau vide : admis
+    const ok = seulImages && images.length === 1 && images[0] && String(images[0].dict.get(PDFName.of('Subtype'))) === '/Image'
+      && Array.isArray(ops) && ops.every(o => ['q', 'Q', 'cm', 'Do'].includes(o.name)) && (!annots || (annots instanceof PDFArray && !annots.size()));
+    if (!ok) throw new Error(nom + ' caviardée : contenu inattendu, export refusé.');
+  }
+
+  // Page caviardée : page NEUVE (même cadre, même rotation affichée) qui ne porte que l'image de la page, zones
+  // noircies dans les pixels (trame.js), puis les autres annotations de l'utilisateur. La page d'origine n'est
+  // jamais copiée : ni son texte, ni ses polices, ni ses annotations ne voyagent dans le fichier.
+  async function pageTrame(sortie, p, polices, avis, nom) {
+    const pj = await p.source.doc.getPage(p.index + 1);
+    const { jpeg, view } = await MPDS.pdfTrame.rendre(pj, p.annots.filter(a => a.type === 'caviar'), avis, nom);
+    const [x0, y0, x1, y1] = view, c = sortie.addPage([x1 - x0, y1 - y0]);
+    c.setMediaBox(x0, y0, x1 - x0, y1 - y0);   // même repère que la page d'origine : les autres annotations restent en place
+    c.drawImage(await sortie.embedJpg(jpeg), { x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
+    await sortie.flush();
+    controlerTrame(c, nom);
+    c.setRotation(PDFLib.degrees((((pj.rotate + p.rotation) % 360) + 360) % 360));
+    const v = p.source.valeurs;   // shortcut : valeurs saisies non reportées sur l'image ; à faire si le besoin se présente
+    if (v && v.size && (await pj.getAnnotations()).some(a => a.fieldName && v.has(a.fieldName))) {
+      avis.push(nom + ' : les valeurs saisies dans le formulaire n\'y figurent pas (la page devient une image). Enregistrez d\'abord le formulaire rempli, rouvrez-le, puis caviardez.');
+    }
+    await aplatir(sortie, c, p.annots.filter(a => a.type !== 'caviar'), polices);
+  }
+
   // pages : [{ source, index, rotation, annots? }] → Uint8Array d'un nouveau PDF ; avis : reçoit les avertissements.
   // Tout est copié avant le premier await : une modification faite pendant l'export (chargement de
   // pdf-lib…) ne change pas le fichier en cours de construction.
   // avisFichier : avertissements qui ne concernent que le fichier PDF (par défaut avec les autres)
-  async function construire(pages, avis = [], avisFichier = avis) {
+  // termes : termes caviardés par recherche, contrôlés dans le fichier produit (recherche.js)
+  async function construire(pages, avis = [], avisFichier = avis, termes = []) {
     pages = pages.map(p => ({ source: p.source, index: p.index, rotation: p.rotation, annots: structuredClone(p.annots || []) }));
+    termes = [...termes];
+    const trame = p => p.annots.some(a => a.type === 'caviar'), caviarde = pages.some(trame);
     const valeurs = new Map(pages.map(p => [p.source, new Map(p.source.valeurs || [])]));
     const { PDFDocument, PDFDict, PDFName, PDFObjectCopier, PDFPage, degrees } = await bibliotheque();
     const polices = new Map();
@@ -100,7 +135,7 @@
         throw new Error('« ' + src.nom + ' » ne peut pas être relu pour l\'export (' + err.message + ').');
       }
       MPDS.pdfFormulaireExport.remplir(lecteur, src, valeurs.get(src), avis, avisFichier);   // formulaire rempli puis aplati
-      const miennes = pages.filter(p => p.source === src);
+      const miennes = pages.filter(p => p.source === src && !trame(p));   // page caviardée : jamais copiée
       isoler(lecteur, miennes.map(p => p.index));
       const cat = lecteur.catalog;
       if (cat.has(PDFName.of('Outlines'))) perdus.add('les signets');
@@ -118,10 +153,12 @@
         copies.set(p, PDFPage.of(sortie.context.lookup(ref), ref, sortie));
       }
     }
-    for (const p of pages) {
+    for (const [k, p] of pages.entries()) {
+      if (trame(p)) { await pageTrame(sortie, p, polices, avis, 'Page ' + (k + 1)); continue; }
       const c = copies.get(p);
       const r = c.getRotation().angle, base = r % 90 ? 0 : r;   // /Rotate invalide : ignoré, comme PDF.js l'affiche
       c.setRotation(degrees((((base + p.rotation) % 360) + 360) % 360));
+      if (caviarde) for (const cle of ['Metadata', 'PieceInfo', 'Thumb']) c.node.delete(PDFName.of(cle));   // métadonnées propres à la page
       sortie.addPage(c);
       await aplatir(sortie, c, p.annots || [], polices);
     }
@@ -130,7 +167,12 @@
     const n = sortie.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFDict && String(o.get(TYPE)) === '/Page').length;
     if (n !== pages.length) throw new Error('le fichier contiendrait ' + n + ' pages au lieu de ' + pages.length + ' (référence vers une page retirée).');
     if (perdus.size) { const l = [...perdus]; avisFichier.push('Non conservés dans le fichier exporté : ' + (l.length > 1 ? l.slice(0, -1).join(', ') + ' et ' : '') + l[l.length - 1] + '.'); }
-    return sortie.save();
+    const octets = await sortie.save();
+    // Caviardage : le fichier produit est relu (pages caviardées sans texte ; termes recherchés encore lisibles signalés)
+    if (caviarde || termes.length) {
+      await MPDS.pdfRecherche.verifier(octets, pages.map(p => ({ trame: trame(p), sansTexte: !p.annots.some(a => a.type === 'texte' || a.type === 'tampon') })), termes, avisFichier);
+    }
+    return octets;
   }
 
   // « dossier.pdf » + « modifié » → « dossier (modifié).pdf » (caractères interdits des noms de fichier retirés)

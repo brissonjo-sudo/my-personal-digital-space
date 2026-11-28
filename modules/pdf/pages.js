@@ -9,13 +9,14 @@
 
   function creer() {
     const liste = [], sources = [], selection = new Set();   // selection : pages cochées (par identité)
+    const termes = new Set();   // termes caviardés par recherche : contrôlés dans le fichier exporté (export.js)
     let modifie = false, version = 0;   // version : incrémentée à chaque modification
     const toucher = () => { modifie = true; version++; };
 
     const normaliser = r => ((r % 360) + 360) % 360;
     const vider = () => {
       for (const s of sources) s.doc.destroy().catch(() => {});
-      sources.length = 0; liste.length = 0; selection.clear(); modifie = false;
+      sources.length = 0; liste.length = 0; selection.clear(); termes.clear(); modifie = false;
     };
     const ajouter = source => {
       sources.push(source);
@@ -24,7 +25,7 @@
     };
 
     return {
-      liste, sources, selection,
+      liste, sources, selection, termes,
       get modifie() { return modifie; },
       get version() { return version; },
       // Export réussi de l'état `v` : l'indicateur ne s'éteint que si rien n'a changé depuis

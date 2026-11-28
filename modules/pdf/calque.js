@@ -32,9 +32,10 @@
 
     function formeDe(a, poignee) {
       const g = el('g', { class: 'pdf-annot', 'data-id': a.id, 'data-type': a.type });
-      if (a.type === 'surlig') {
+      if (a.type === 'surlig' || a.type === 'caviar') {   // caviar : noir plein, comme dans le fichier exporté
         const p = ve(a.x, a.y), q = ve(a.x + a.w, a.y + a.h);
-        el('rect', { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), width: Math.abs(q.x - p.x), height: Math.abs(q.y - p.y), fill: a.couleur, 'fill-opacity': a.opacite }, g);
+        el('rect', { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), width: Math.abs(q.x - p.x), height: Math.abs(q.y - p.y),
+          ...(a.type === 'caviar' ? { fill: '#000', class: 'pdf-caviar' } : { fill: a.couleur, 'fill-opacity': a.opacite }) }, g);
       } else if (a.type === 'texte') {
         const p = ve(a.x, a.y);   // rotation nette = rotation affichée − angle de lecture : 0 tant que la page n'est pas repivotée
         const t = el('text', { x: p.x, y: p.y, 'font-size': a.taille, 'font-family': FAMILLES[a.police] || FAMILLES.Helvetica, fill: a.couleur, transform: `rotate(${info.rotation - a.angle} ${p.x} ${p.y})`, style: 'white-space: pre' }, g);
@@ -163,9 +164,9 @@
         Object.assign(geste.a, decaler(geste.avant, a1.x - a0.x, a1.y - a0.y));
         geste.bouge = true;
         redessiner();
-      } else if (geste.type === 'surlig') {
+      } else if (geste.type === 'surlig' || geste.type === 'caviar') {
         geste.fin = p;
-        if (!geste.el) geste.el = el('rect', { class: 'pdf-apercu', fill: r.couleur, 'fill-opacity': r.opacite / 100 }, svg);
+        if (!geste.el) geste.el = el('rect', geste.type === 'caviar' ? { class: 'pdf-apercu', fill: '#000' } : { class: 'pdf-apercu', fill: r.couleur, 'fill-opacity': r.opacite / 100 }, svg);
         for (const [k, v] of Object.entries({ x: Math.min(d.x, p.x), y: Math.min(d.y, p.y), width: Math.abs(p.x - d.x), height: Math.abs(p.y - d.y) })) geste.el.setAttribute(k, v);
       } else if (geste.type === 'dessin') {
         const l = geste.pts[geste.pts.length - 1];
@@ -192,9 +193,10 @@
       if (g.type === 'dep' || g.type === 'redim') { if (g.bouge) ctx.annotations.deplacer(entree, g.a, g.avant, geom(g.a)); }
       else if (REDIM.includes(g.type)) poser1(g.depart);
       else if (g.type === 'texte') ouvrirEditeur(g.depart);   // à la fin du clic : le focus donné à l'appui serait repris
-      else if (g.type === 'surlig') {
+      else if (g.type === 'surlig' || g.type === 'caviar') {
         const a = vp(g.depart.x, g.depart.y), b = vp(g.fin.x, g.fin.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
-        if (w > 2 && h > 2) ctx.annotations.ajouter(entree, { type: 'surlig', x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w, h, couleur: r.couleur, opacite: r.opacite / 100 });
+        const zone = { type: g.type, x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w, h };
+        if (w > 2 && h > 2) ctx.annotations.ajouter(entree, g.type === 'caviar' ? zone : { ...zone, couleur: r.couleur, opacite: r.opacite / 100 });
       } else if (g.type === 'dessin' && g.pts.length > 1) {
         ctx.annotations.ajouter(entree, { type: 'dessin', pts: g.pts.map(q => { const v = vp(q.x, q.y); return [v.x, v.y]; }), couleur: r.couleur, epaisseur: r.epaisseur });
       }

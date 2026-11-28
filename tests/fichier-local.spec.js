@@ -65,6 +65,18 @@ test('conversions fonctionnelles en file://, sous CSP et SRI', async ({ page }) 
     .then(() => page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click())]);
   expect(telechargement.suggestedFilename()).toBe('v (modifié).pdf');
   expect(fs.readFileSync(await telechargement.path()).subarray(0, 5).toString()).toBe('%PDF-');
+  // Caviardage : rendu PDF.js en image (toBlob) puis relecture du fichier produit, aussi en file://
+  await page.keyboard.press('r');
+  const cv = await page.locator('.pdf-calque').boundingBox();
+  await page.mouse.move(cv.x + 20, cv.y + 20); await page.mouse.down(); await page.mouse.move(cv.x + 200, cv.y + 120, { steps: 5 }); await page.mouse.up();
+  await expect(page.locator('.pdf-calque [data-type="caviar"]')).toHaveCount(1);
+  const [caviarde] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Enregistrer le PDF', exact: true }).click()]);
+  expect(caviarde.suggestedFilename()).toBe('v (caviardé).pdf');
+  const texteP1 = await page.evaluate(async o => {
+    const d = await (await MPDS.pdfjs.ouvrir(new Uint8Array(o).buffer)).promise;
+    return (await (await d.getPage(1)).getTextContent()).items.length;
+  }, [...fs.readFileSync(await caviarde.path())]);
+  expect(texteP1).toBe(0);
   // Module Images : retrait sans perte, vignette blob: et téléchargement, aussi en file://
   await page.locator('.rail-lien[data-module="images"]').click();
   await page.evaluate(async () => MPDS.envoyer(await Fab.jpegAvecMeta('photo.jpg'), 'images'));
